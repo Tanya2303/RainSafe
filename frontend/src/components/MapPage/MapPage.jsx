@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import MapGL, { Source, Layer } from 'react-map-gl/mapbox';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
 // Define the heatmap layer style
 const heatmapLayer = {
   id: 'risk-heatmap',

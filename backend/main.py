@@ -11,6 +11,7 @@ import motor.motor_asyncio
 from fastapi import FastAPI, Request, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pydantic import BaseModel # Import BaseModel for DashboardStats
 
 # --- Import our services and schemas ---
 from app.services.risk_service import RiskAssessmentService
@@ -26,6 +27,21 @@ from app.utils.database import db
 
 # Load environment variables
 load_dotenv()
+
+# --- NEW: Dashboard Stats Model (Assuming it's in schemas.py, defining here for completeness) ---
+class DashboardStats(BaseModel):
+    total_reports: int
+    high_risk_count: int
+    medium_risk_count: int
+
+# --- UPDATED: DashboardResponse Model (Assuming it's in schemas.py) ---
+# NOTE: If your actual DashboardResponse model is defined elsewhere, ensure it's updated there.
+# For this script to run, I'll temporarily redefine the final structure of the response here.
+# Assuming DashboardResponse now looks like this:
+class DashboardResponse(BaseModel):
+    map_points: List[MapPoint]
+    stats: DashboardStats # Changed from charts_data
+
 
 # --- Dependency Injection Setup ---
 def get_risk_service() -> RiskAssessmentService:
@@ -72,7 +88,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- API Endpoints (Now using Dependency Injection) ---
+# --- API Endpoints ---
 @app.get("/")
 def read_root():
     """Health check endpoint."""
@@ -118,13 +134,13 @@ async def get_risk(
         ml_features_data = await risk_service.gather_features_for_prediction(lat, lon) 
         
         ml_risk_level = RiskLevel.UNKNOWN
-        if request.app.state.predictor: # This check now matters!
+        if request.app.state.predictor:
             ml_prediction_raw = request.app.state.predictor.predict([ml_features_data["features"]])[0]
             try:
                 ml_risk_level = RiskLevel(ml_prediction_raw)
             except ValueError:
                 print(f"Warning: ML predictor returned unknown risk level: {ml_prediction_raw}")
-        else: # Add a log if predictor is supposed to be on but isn't
+        else:
             print("INFO: ML predictor is disabled or failed to load. ml_assessment will be 'Unknown'.")
 
 
@@ -190,7 +206,7 @@ async def get_dashboard_data(
     start_time: Optional[datetime] = Query(None, description="Start date/time for filtering reports (ISO format)"),
     end_time: Optional[datetime] = Query(None, description="End date/time for filtering reports (ISO format)")
 ):
-    """Get dashboard data for frontend."""
+    """Get dashboard data for frontend, including pre-calculated stats."""
     try:
         reports_collection = db.get_collection("reports")
         
@@ -242,7 +258,19 @@ async def get_dashboard_data(
                 )
             )
 
-        return DashboardResponse(map_points=map_points, charts_data={})
+        # NEW: Calculate stats on the server
+        total_reports = len(map_points)
+        high_risk_count = sum(1 for p in map_points if p.risk_level == RiskLevel.HIGH)
+        medium_risk_count = sum(1 for p in map_points if p.risk_level == RiskLevel.MEDIUM)
+
+        stats = DashboardStats(
+            total_reports=total_reports,
+            high_risk_count=high_risk_count,
+            medium_risk_count=medium_risk_count
+        )
+
+        # Return the new structure
+        return DashboardResponse(map_points=map_points, stats=stats)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve dashboard data: {str(e)}")
@@ -266,3 +294,21 @@ async def send_alert(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to send/log alert: {str(e)}")
+
+# NEW: Endpoint to retrieve alerts
+@app.get("/alerts", response_model=List[Alert])
+async def get_alerts():
+    """Retrieve the most recent active alerts."""
+    try:
+        alerts_collection = db.get_collection("alerts")
+        # Find the 10 most recent alerts
+        alerts_cursor = alerts_collection.find().sort("sent_at", -1).limit(10)
+        alerts = await alerts_cursor.to_list(length=10)
+        
+        # Convert ObjectId to string for each document
+        for alert in alerts:
+            alert["_id"] = str(alert["_id"])
+            
+        return alerts
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve alerts: {str(e)}")
