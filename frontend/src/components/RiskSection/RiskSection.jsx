@@ -1,0 +1,283 @@
+// components/RiskSection/RiskSection.jsx
+import React, { useState } from "react";
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+
+const SAMPLE_RESPONSE = {
+  risk_level: "Medium",
+  source: "hybrid-historical",
+  details: {
+    threshold_assessment: "Medium",
+    ml_assessment: "Unknown",
+    user_reports_found: 4,
+    weather_data_found: true,
+    "contributing factors": [
+      "Moderate number of reports (4).",
+      "ML model not ready or missing data."
+    ],
+    recommendation: "Potential local flooding - be cautious.",
+    error: null,
+  },
+};
+
+const colorForRisk = (r) => {
+  if (!r) return "bg-gray-300 text-gray-800";
+  const key = r.toLowerCase();
+  if (key === "high") return "bg-red-500 text-white";
+  if (key === "medium") return "bg-amber-500 text-black";
+  if (key === "low") return "bg-green-500 text-white";
+  return "bg-gray-300 text-gray-800";
+};
+
+export default function RiskSection() {
+  const [lat, setLat] = useState("");
+  const [lon, setLon] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [risk, setRisk] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Mock risk API
+  const fetchRisk = async (latitude, longitude) => {
+    await new Promise((r) => setTimeout(r, 700));
+    return { ...SAMPLE_RESPONSE };
+  };
+
+  // Mapbox geocoding
+  const geocodeLocation = async (query) => {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+      query
+    )}.json?access_token=${MAPBOX_TOKEN}&limit=1`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      const [lng, lat] = data.features[0].center;
+      return { lat, lng };
+    }
+    throw new Error("Location not found");
+  };
+
+  // Set coordinates from search (does NOT fetch risk)
+  const handleSearchLocation = async () => {
+    setError(null);
+    setRisk(null); // Clear previous risk
+    if (!locationQuery) return setError("Enter a location name.");
+    setLoading(true);
+    try {
+      const { lat, lng } = await geocodeLocation(locationQuery);
+      setLat(lat.toFixed(6));
+      setLon(lng.toFixed(6));
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Set coordinates from current location (does NOT fetch risk)
+  const handleUseMyLocation = () => {
+    setError(null);
+    setRisk(null); // Clear previous risk
+    if (!navigator.geolocation) {
+      setError("Geolocation not supported by this browser.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLat(pos.coords.latitude.toFixed(6));
+        setLon(pos.coords.longitude.toFixed(6));
+      },
+      () => setError("Permission denied or unable to fetch location."),
+      { enableHighAccuracy: true }
+    );
+  };
+
+  // Fetch risk for current coordinates
+  const handleCheckRisk = async () => {
+    setError(null);
+    if (!lat || !lon) {
+      setError("Please use a location or your current location to check risk.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await fetchRisk(lat, lon);
+      setRisk(data);
+    } catch (e) {
+      setError("Failed to fetch risk. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mlAssessmentDisplay = (val) => {
+    if (!val || val.toLowerCase() === "unknown") {
+      return (
+        <div className="flex items-center gap-2">
+          <div className="text-sm text-gray-600">Pending</div>
+          <div
+            className="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-700"
+            title="Model assessment is not available for this location yet"
+          >
+            ML Pending
+          </div>
+        </div>
+      );
+    }
+    return <div className="text-sm font-semibold">{val}</div>;
+  };
+
+  return (
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-2xl font-bold">Risk Assessment</h2>
+            <p className="text-sm text-gray-500">Based on reports, weather & models</p>
+          </div>
+          <div className="text-sm text-gray-400">Source: hybrid-historical</div>
+        </div>
+
+        {/* Inputs */}
+        <div className="bg-white rounded-xl p-4 shadow mb-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <input
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              placeholder="Search location"
+              className="px-3 py-2 rounded-md border w-full md:w-[300px]"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleUseMyLocation}
+                className="px-4 py-2 rounded-full bg-gray-100 border hover:bg-gray-200 text-sm"
+              >
+                Use my location
+              </button>
+              <button
+                onClick={handleSearchLocation}
+                disabled={loading}
+                className="px-4 py-2 rounded-full bg-blue-600 text-white font-semibold disabled:opacity-60"
+              >
+                {loading ? "Searching..." : "Search"}
+              </button>
+              <button
+                onClick={handleCheckRisk}
+                disabled={loading}
+                className="px-4 py-2 rounded-full bg-green-600 text-white font-semibold disabled:opacity-60"
+              >
+                {loading ? "Checking..." : "Check Risk"}
+              </button>
+            </div>
+          </div>
+          {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
+        </div>
+
+        {/* Map preview */}
+        <div className="mt-4 bg-white rounded-xl p-4 shadow">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Map preview</div>
+            <div className="text-xs text-gray-400">Lat: {lat || "—"} • Lon: {lon || "—"}</div>
+          </div>
+          <div className="h-48 rounded-md bg-gray-100 flex items-center justify-center text-gray-400">
+            {lat && lon ? (
+              <div className="text-sm">
+                Marker at {lat}, {lon}
+                <div className="text-xs text-gray-400 mt-1">(Map placeholder)</div>
+              </div>
+            ) : (
+              <div className="text-sm">Search a location or use 'Use my location' to preview map.</div>
+            )}
+          </div>
+        </div>
+
+        {/* Risk details */}
+        {risk && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {/* Summary */}
+            <div className="bg-white rounded-xl p-6 shadow">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${colorForRisk(
+                        risk.risk_level
+                      )}`}
+                    >
+                      {risk.risk_level}
+                    </span>
+                    <div>
+                      <div className="text-sm text-gray-500">Assessment</div>
+                      <div className="text-lg font-bold">{risk.details.threshold_assessment}</div>
+                      <div className="text-xs text-gray-400">Source: {risk.source}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <div className="text-sm text-gray-500 mb-1">Recommendation</div>
+                    <div className="text-base text-gray-800 font-medium">{risk.details.recommendation}</div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button className="px-3 py-1 rounded-full border text-sm">Share</button>
+                    <button className="px-3 py-1 rounded-full border text-sm">Report</button>
+                    <button className="px-3 py-1 rounded-full border text-sm">Save location</button>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-xs text-gray-500">Last updated</div>
+                  <div className="text-sm text-gray-700 mt-1">{new Date().toLocaleString()}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="bg-white rounded-xl p-4 shadow">
+              <h3 className="text-sm font-semibold mb-3">Details</h3>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">User reports</div>
+                    <div className="text-xs text-gray-400">Reports submitted by users</div>
+                  </div>
+                  <div className="text-lg font-bold">{risk.details.user_reports_found ?? 0}</div>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">Weather data</div>
+                  </div>
+                  <div className="text-sm">{risk.details.weather_data_found ? "Available" : "Not found"}</div>
+                </div>
+
+                <div className="flex items-center justify-between py-2 border-b">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700">Threshold assessment</div>
+                  </div>
+                  <div className="text-sm">{risk.details.threshold_assessment || "N/A"}</div>
+                </div>
+
+                <div className="py-2 border-b">
+                  <div className="text-sm font-medium text-gray-700">ML assessment</div>
+                  <div className="mt-1">{mlAssessmentDisplay(risk.details.ml_assessment)}</div>
+                </div>
+
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mt-2">Contributing factors</div>
+                  <ul className="list-disc pl-5 mt-2 text-sm text-gray-700">
+                    {Array.isArray(risk.details["contributing factors"]) &&
+                      risk.details["contributing factors"].map((f, i) => <li key={i}>{f}</li>)}
+                  </ul>
+                </div>
+
+                {risk.details.error && <div className="mt-3 text-sm text-red-600">Error: {risk.details.error}</div>}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
