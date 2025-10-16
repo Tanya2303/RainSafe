@@ -83,12 +83,16 @@ const Sidebar = ({ isMenuOpen, toggleMenu, currentPage, onNavigate }) => {
         } lg:relative lg:flex-shrink-0`}
         style={{ backgroundColor: COLORS.sidebar, color: COLORS.textDark }}
       >
-        {/* Logo */}
+        {/* Logo - MODIFIED to link to the Landing Page ID: 'ProductLanding' */}
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center space-x-2">
+          <button
+            onClick={() => handleNavigation('ProductLanding')} // <-- Links to the new page
+            className="flex items-center space-x-2 cursor-pointer transition-opacity hover:opacity-80"
+            title="Go to Landing Page"
+          >
             <MapPin className="text-3xl" style={{ color: COLORS.accentBlue }} />
             <span className="text-xl font-bold">RainSafe</span>
-          </div>
+          </button>
           <button className="lg:hidden text-gray-500 hover:text-gray-700" onClick={toggleMenu}>
             <X size={24} />
           </button>

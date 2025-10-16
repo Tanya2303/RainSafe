@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-const AuthPage = () => {
+// AuthPage now accepts onAuthSuccess prop from App.jsx
+const AuthPage = ({ onAuthSuccess }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -97,6 +98,14 @@ const AuthPage = () => {
       setIsLoading(false)
       setShowSuccess(true)
       
+      // If logging in successfully, call the onAuthSuccess callback
+      if (isLogin && onAuthSuccess) {
+          // Give a short delay to show the "Redirecting..." message
+          setTimeout(() => {
+              onAuthSuccess();
+          }, 500);
+      }
+      
       // Reset form after success
       setTimeout(() => {
         setFormData({
@@ -107,7 +116,12 @@ const AuthPage = () => {
           rememberMe: false
         })
         setShowSuccess(false)
-      }, 2000)
+        
+        // If it was a sign-up, switch to login mode after success message is shown
+        if (!isLogin) {
+            setIsLogin(true);
+        }
+      }, 1000)
     }, 1000)
   }
 
@@ -166,7 +180,7 @@ const AuthPage = () => {
                 <div className="mb-6 p-4 rounded-lg flex items-center" style={{ backgroundColor: `${colors.accentGreen}20` }}>
                   <div className="w-5 h-5 rounded-full mr-3" style={{ backgroundColor: colors.accentGreen }}></div>
                   <span className="text-sm font-medium" style={{ color: colors.accentGreen }}>
-                    {isLogin ? 'Successfully signed in!' : 'Account created successfully!'}
+                    {isLogin ? 'Successfully signed in! Redirecting...' : 'Account created successfully!'}
                   </span>
                 </div>
               )}

@@ -8,12 +8,14 @@ import DashboardPage from './components/DashboardPage/DashboardPage';
 import ReportPage from './components/ReportPage/ReportPage';
 import MapPage from './components/MapPage/MapPage';
 import AlertsPage from './components/AlertPage/AlertPage';
+import LandingPage from './components/LandingPage';
 
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState('Homepage'); // Default to Homepage
-  const [isAuthenticated, setIsAuthenticated] = useState(true); // Start as authenticated to show homepage
+  // Start on the Landing Page and unauthenticated for a public view
+  const [currentPage, setCurrentPage] = useState('ProductLanding'); 
+  const [isAuthenticated, setIsAuthenticated] = useState(false); 
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -22,13 +24,19 @@ function App() {
   // Navigation handler that manages page state AND authentication state
   const handleNavigate = (pageId) => {
     if (pageId === 'AuthPage') {
-      // If the user clicks the Auth link (Login/Sign Up), log them out (set isAuthenticated to false)
       setIsAuthenticated(false);
       setCurrentPage('AuthPage');
+    } else if (pageId === 'Homepage') {
+      setCurrentPage(pageId);
+    } else if (pageId === 'ProductLanding') {
+      setCurrentPage(pageId);
     } else {
       setCurrentPage(pageId);
     }
   };
+
+  // Check if we should render the sidebar
+  const showSidebar = currentPage !== 'ProductLanding' && isAuthenticated;
 
   // A mapping function to render the correct page content
   const renderPage = () => {
@@ -44,6 +52,8 @@ function App() {
     );
 
     switch (currentPage) {
+      case 'ProductLanding':
+        return <LandingPage onNavigate={handleNavigate} />;
       case 'Homepage':
         return <Homepage toggleMenu={toggleMenu} />; // Homepage contains its own header
       case 'DashboardPage':
@@ -55,29 +65,53 @@ function App() {
       case 'AlertsPage':
         return renderPageContent('Alerts', AlertsPage);
       default:
-        // Default to Homepage if page not found
-        return <Homepage toggleMenu={toggleMenu} />;
+        // Default based on authentication status
+        return isAuthenticated ? <Homepage toggleMenu={toggleMenu} /> : <LandingPage onNavigate={handleNavigate} />;
     }
   };
 
-  if (!isAuthenticated) {
-    // If not authenticated, always render AuthPage. On successful auth, set authenticated to true and go to Homepage.
-    return <AuthPage onAuthSuccess={() => { setIsAuthenticated(true); setCurrentPage('Homepage'); }} />;
+  // AuthPage is a full-screen standalone experience
+  if (currentPage === 'AuthPage' && !isAuthenticated) {
+    return (
+      <AuthPage 
+        onAuthSuccess={() => { 
+          setIsAuthenticated(true); 
+          setCurrentPage('Homepage'); // *** ENSURED REDIRECTION TO HOMEPAGE ***
+        }} 
+      />
+    );
   }
 
-  return (
-    <div className="flex min-h-screen" style={{ backgroundColor: '#F5F7FA' }}>
-      
-      {/* Sidebar - uses the new general navigation handler */}
-      <Sidebar 
-        isMenuOpen={isMenuOpen} 
-        toggleMenu={toggleMenu}
-        currentPage={currentPage}
-        onNavigate={handleNavigate}
-      />
+  // If trying to access a secure page without auth, redirect to AuthPage (or LandingPage)
+  if (!isAuthenticated && currentPage !== 'ProductLanding' && currentPage !== 'AuthPage') {
+    // Automatically redirect unauthenticated access of secure paths to the Auth page
+    return (
+        <AuthPage 
+            onAuthSuccess={() => { 
+              setIsAuthenticated(true); 
+              setCurrentPage('Homepage'); // *** ENSURED REDIRECTION TO HOMEPAGE ***
+            }} 
+        />
+    );
+  }
 
-      {/* Main Content Area - renders the selected page */}
-      <div className="flex-1 flex flex-col overflow-x-hidden">
+
+  return (
+    // If not showing the sidebar, the root container doesn't need 'flex' styling
+    <div className={showSidebar ? "flex min-h-screen" : "min-h-screen"} style={{ backgroundColor: '#F5F7FA' }}>
+      
+      {/* Sidebar is only rendered if showSidebar is true */}
+      {showSidebar && (
+        <Sidebar 
+          isMenuOpen={isMenuOpen} 
+          toggleMenu={toggleMenu}
+          currentPage={currentPage}
+          onNavigate={handleNavigate}
+        />
+      )}
+
+      {/* Main Content Area: uses flex-1 only if sidebar is present */}
+      <div className={showSidebar ? "flex-1 flex flex-col overflow-x-hidden" : "w-full"}>
         {renderPage()}
       </div>
     </div>
