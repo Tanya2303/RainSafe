@@ -1,11 +1,12 @@
 // components/RiskSection/RiskSection.jsx
-import React, { useState, useMemo } from "react";
+import React, { useState } from "react";
 import Map, { Marker, NavigationControl, ScaleControl } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const API_BASE = import.meta.env.VITE_API_BASE || ""; // e.g. http://localhost:8000
 
-// SAMPLE_RESPONSE unchanged
+// SAMPLE_RESPONSE kept for fallback / dev
 const SAMPLE_RESPONSE = {
   risk_level: "Medium",
   source: "hybrid-historical",
@@ -25,7 +26,7 @@ const SAMPLE_RESPONSE = {
 
 const colorForRisk = (r) => {
   if (!r) return "bg-gray-300 text-gray-800";
-  const key = r.toLowerCase();
+  const key = String(r).toLowerCase();
   if (key === "high") return "bg-red-500 text-white";
   if (key === "medium") return "bg-amber-500 text-black";
   if (key === "low") return "bg-green-500 text-white";
@@ -45,6 +46,7 @@ export default function RiskSection() {
   const [loading, setLoading] = useState(false);
   const [risk, setRisk] = useState(null);
   const [error, setError] = useState(null);
+  const [mlLoading, setMlLoading] = useState(false);
 
   // Controlled map view state so the map recenters when lat/lon change
   const [viewState, setViewState] = useState({
@@ -55,30 +57,12 @@ export default function RiskSection() {
     pitch: 0,
   });
 
-  // Mock risk API
-  const fetchRisk = async (latitude, longitude) => {
-    await new Promise((r) => setTimeout(r, 700));
-    return { ...SAMPLE_RESPONSE };
-  };
-
-  /**
-   * Geocode a free-text query but restrict results to Karnataka (India).
-   * - bbox: west,south,east,north (approx Karnataka)
-   * - country=IN to further restrict to India
-   * - proximity: bias results towards Bengaluru (optional)
-   *
-   * NOTE: bbox is a hard filter (Mapbox will only return features inside it).
-   */
+  // --- Geocode (same as your existing implementation) ---
   const geocodeLocation = async (query) => {
     if (!MAPBOX_TOKEN) throw new Error("Mapbox token not configured.");
     const encoded = encodeURIComponent(query);
-
-    // Karnataka bbox: west, south, east, north
     const karnatakaBbox = "74.0,11.0,78.6,18.6";
-
-    // Optional: bias results towards Bengaluru (lat:12.9716, lon:77.5946)
     const proximity = "77.5946,12.9716";
-
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=IN&bbox=${karnatakaBbox}&proximity=${proximity}`;
 
     const res = await fetch(url);
@@ -88,9 +72,7 @@ export default function RiskSection() {
     }
     const data = await res.json();
 
-    // If no features inside the bbox, try a fallback: geocode without bbox but with country=IN+proximity
     if (!data.features || data.features.length === 0) {
-      // fallback attempt to still prefer India but be lenient
       const fallbackUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=IN&proximity=${proximity}`;
       const fallbackRes = await fetch(fallbackUrl);
       if (!fallbackRes.ok) {
@@ -119,7 +101,7 @@ export default function RiskSection() {
       ...vs,
       latitude: latNum,
       longitude: lonNum,
-      zoom: 12, // closer zoom when a location is selected
+      zoom: 12,
     }));
   };
 
@@ -156,6 +138,48 @@ export default function RiskSection() {
     );
   };
 
+  // --- Core: call backend /risk and normalize result ---
+  const callRiskEndpoint = async (latitude, longitude) => {
+    const url = `${API_BASE}/risk?lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Risk fetch failed: ${res.status} ${res.statusText} ${txt}`);
+    }
+    const payload = await res.json();
+
+    // Normalize payload to UI-friendly shape expected by the component
+    const normalized = {
+      risk_level: payload.risk_level ?? payload.risk ?? "Unknown",
+      source: payload.source ?? "backend",
+      details: {
+        threshold_assessment:
+          payload.details?.threshold_assessment ??
+          payload.threshold_assessment ??
+          "Unknown",
+        ml_assessment:
+          payload.details?.ml_assessment ??
+          payload.ml_assessment ??
+          "Unknown",
+        user_reports_found: payload.details?.user_reports_found ?? payload.user_reports_found ?? 0,
+        weather_data_found: payload.details?.weather_data_found ?? payload.weather_data_found ?? false,
+        "contributing factors":
+          payload.details?.["contributing factors"] ??
+          payload.details?.contributing_factors ??
+          payload.contributing_factors ??
+          [],
+        recommendation: payload.details?.recommendation ?? payload.recommendation ?? "No recommendation",
+        error: payload.details?.error ?? payload.error ?? null,
+      },
+    };
+    return normalized;
+  };
+
   // Fetch risk for current coordinates
   const handleCheckRisk = async () => {
     setError(null);
@@ -164,19 +188,60 @@ export default function RiskSection() {
       return;
     }
     setLoading(true);
+    setMlLoading(false);
+    setRisk(null);
     try {
-      const data = await fetchRisk(lat, lon);
-      setRisk(data);
+      const data = await callRiskEndpoint(lat, lon);
+
+      // If ML is unknown/pending, show partial and optionally poll a few times
+      const mlVal = data.details?.ml_assessment;
+      const mlIsPending = !mlVal || String(mlVal).toLowerCase() === "unknown";
+
+      if (mlIsPending) {
+        // show initial threshold/partial result
+        setRisk({
+          ...data,
+          details: { ...data.details, ml_assessment: "Unknown" },
+        });
+        setMlLoading(true);
+
+        // Poll loop: will try a few times to get ML result (safe small loop)
+        const maxTries = 6; // total tries
+        const intervalMs = 2000; // 2s between tries -> up to ~12s
+        for (let i = 0; i < maxTries; i++) {
+          await new Promise((r) => setTimeout(r, intervalMs));
+          try {
+            const refreshed = await callRiskEndpoint(lat, lon);
+            const refreshedMl = refreshed.details?.ml_assessment;
+            if (refreshedMl && String(refreshedMl).toLowerCase() !== "unknown") {
+              setRisk(refreshed);
+              setMlLoading(false);
+              break;
+            }
+          } catch (err) {
+            // ignore transient poll errors; continue polling
+          }
+          if (i === maxTries - 1) {
+            // final iteration, stop loading
+            setMlLoading(false);
+          }
+        }
+      } else {
+        // ML present immediately
+        setRisk(data);
+        setMlLoading(false);
+      }
     } catch (e) {
-      setError("Failed to fetch risk. Try again.");
+      setError(e.message || "Failed to fetch risk. Try again.");
+      setMlLoading(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // Display for ML assessment (preserved)
+  // Display for ML assessment
   const mlAssessmentDisplay = (val) => {
-    if (!val || val.toLowerCase() === "unknown") {
+    if (!val || String(val).toLowerCase() === "unknown") {
       return (
         <div className="flex items-center gap-2">
           <div className="text-sm text-gray-600">Pending</div>
@@ -306,7 +371,7 @@ export default function RiskSection() {
               </div>
             </div>
 
-            {/* Details (ML + contributing factors restored) */}
+            {/* Details (ML + contributing factors) */}
             <div className="bg-white rounded-xl p-4 shadow">
               <h3 className="text-sm font-semibold mb-3">Details</h3>
               <div className="space-y-2">
@@ -334,7 +399,13 @@ export default function RiskSection() {
 
                 <div className="py-2 border-b">
                   <div className="text-sm font-medium text-gray-700">ML assessment</div>
-                  <div className="mt-1">{mlAssessmentDisplay(risk.details.ml_assessment)}</div>
+                  <div className="mt-1 flex items-center gap-3">
+                    {mlLoading ? (
+                      <div className="text-sm text-blue-600">ML analysis in progress…</div>
+                    ) : (
+                      mlAssessmentDisplay(risk.details.ml_assessment)
+                    )}
+                  </div>
                 </div>
 
                 <div>

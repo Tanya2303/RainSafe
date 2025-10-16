@@ -17,14 +17,19 @@ const DEFAULT_CITY = 'Bengaluru,IN';
 
 // --- Colors / small helpers ---
 const COLORS = {
-  bg: '#F5F7FA',
-  card: '#FFFFFF',
-  textDark: '#333333',
-  textMuted: '#6B7280',
-  accentBlue: '#6A96FF',
-  riskAmber: '#FFC107',
-  criticalRed: '#EF5350',
-  weatherBlue: '#BCE0FD',
+  // 1. Change whole background color to #FDFDFD
+  bg: '#FFFAED',
+  card: '#fdfdfd',
+  textDark: '#06304f',
+  cardtext: '#06304f',
+  textMuted: '#286198',
+  accentBlue: '#e2edeb',
+  riskAmber: '#E2EDEB',
+  criticalRed: '#1f6783',
+  weatherBlue: '#E2EDEB',
+  red: '#ff0000',
+  // Define new Welcome Banner background color
+  welcomeBg: '#0A5C61',
 };
 
 const getMarkerColor = (risk) => {
@@ -40,54 +45,69 @@ const getMarkerColor = (risk) => {
   }
 };
 
-// --- Small UI components (kept from your layout) ---
+
+// 2. APPLY BACKGROUND TO HEADER (MODIFIED)
 const Header = ({ toggleMenu }) => (
-  <header className="p-4.5 flex items-center justify-end bg-white border-b border-gray-200 lg:sticky lg:top-0 z-30">
+  <header 
+    className="p-4.5 flex items-center justify-end border-b border-gray-200 lg:sticky lg:top-0 z-30"
+    style={{ 
+      backgroundColor: COLORS.bg, 
+    }}
+  >
     <div className="flex items-center space-x-2 p-1 rounded-full transition-colors cursor-pointer">
-      <div className="flex items-center justify-center w-8 h-8 rounded-full text-white font-semibold text-sm bg-indigo-600">
+      <div className="flex items-center justify-center w-8 h-8 rounded-full text-black font-semibold text-sm bg-[#E2EDEB]">
         AJ
       </div>
-      <span className="hidden sm:block text-sm font-medium text-gray-800">Alyssa Jones</span>
+      {/* Text color uses cardtext for visibility on light background */}
+      <span className="hidden sm:block text-sm font-medium" style={{ color: COLORS.cardtext }}>Alyssa Jones</span>
     </div>
   </header>
 );
 
+// 3. INCREASE WELCOME BANNER OPACITY (MODIFIED BACKGROUND AND TEXT COLORS)
 const WelcomeBanner = () => (
-  <div className="p-6 relative overflow-hidden rounded-xl shadow-sm h-full" style={{ backgroundColor: COLORS.accentBlue + '10' }}>
-    <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-30" style={{ backgroundColor: COLORS.accentBlue }} aria-hidden="true" />
+  <div 
+    className="p-6 relative overflow-hidden rounded-xl shadow-sm h-full" 
+    // 2. Set Welcome Banner background color to #0A5C61
+    style={{ backgroundColor: COLORS.welcomeBg }}
+  >
+    {/* Adjusted overlay color for contrast */}
+    <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-15" style={{ backgroundColor: 'white' }} aria-hidden="true" />
     <div className="relative z-10">
-      <h1 className="text-2xl font-semibold" style={{ color: COLORS.textDark }}>Welcome, Alyssa</h1>
-      <p className="text-sm mt-1" style={{ color: COLORS.textMuted }}>Stay informed and prepared with RainSafe.</p>
+      {/* Changed text color to white for contrast */}
+      <h1 className="text-5xl font-semibold" style={{ color: 'white' }}>Welcome, Alyssa</h1>
+      <p className="text-l mt-1" style={{ color: 'white' }}>Stay informed and prepared with RainSafe.</p>
     </div>
-    <div className="absolute top-2 right-4 text-xs px-2 py-1 rounded-md font-medium" style={{ backgroundColor: COLORS.accentBlue, color: 'white' }}>Last updated: 5m ago</div>
+    {/* Adjusted background color for the 'Last updated' badge */}
+    <div className="absolute top-2 right-4 text-s px-2 py-1 rounded-md font-medium" style={{ backgroundColor: COLORS.bg, color: COLORS.cardtext }}>Last updated: 5m ago</div>
   </div>
 );
 
 const RiskStatCard = ({ value, label, icon: Icon }) => (
-  <div className="p-4 rounded-xl shadow-sm border h-full" style={{ borderColor: COLORS.riskAmber + '30', backgroundColor: COLORS.riskAmber + '10' }}>
+  <div className="p-4 rounded-xl shadow-sm border h-full" style={{ borderColor: COLORS.riskAmber, backgroundColor: '#C7E2E9' }}>
     <div className="flex items-start justify-between">
-      <h2 className="text-3xl font-bold" style={{ color: COLORS.riskAmber }}>{value}</h2>
-      {Icon && <Icon className="text-xl mt-1" style={{ color: COLORS.riskAmber }} />}
+      <h2 className="text-3xl font-bold" style={{ color: COLORS.cardtext }}>{value}</h2>
+      {Icon && <Icon className="text-xl mt-1" style={{ color: COLORS.cardtext }} />}
     </div>
-    <p className="text-lg font-semibold mt-2" style={{ color: COLORS.textDark }}>{label}</p>
-    <p className="text-xs text-gray-600">Probability</p>
+    <p className="text-lg font-semibold mt-2" style={{ color: COLORS.cardtext }}>{label}</p>
+    <p className="text-xs text-[#06304f]">Probability</p>
   </div>
 );
 
 const ChancesOfRainCard = () => (
-  <div className="p-4 rounded-xl shadow-lg flex items-center justify-center h-full" style={{ backgroundColor: COLORS.riskAmber + '20', border: `1px solid ${COLORS.riskAmber}40` }}>
-    <p className="text-xl font-bold" style={{ color: COLORS.textDark }}>chances of rain</p>
+  <div className="p-4 rounded-xl shadow-lg flex items-center justify-center h-full" style={{ backgroundColor: '#C7E2E9', border: `1px solid ${COLORS.riskAmber}40` }}>
+    <p className="text-xl font-bold" style={{ color: COLORS.cardtext }}>chances of rain</p>
   </div>
 );
 
 // Report list item now expects a map_point-like object
 const ReportListItem = ({ report }) => (
-  <div className="flex gap-4 p-4 rounded-xl bg-white border border-gray-100 shadow-sm">
-    <div className="w-12 h-12 flex items-center justify-center rounded-lg text-white font-bold text-lg shrink-0" style={{ backgroundColor: COLORS.accentBlue }}>
+  <div className="flex gap-4 p-4 rounded-xl bg-[#ffffff] border-gray-100 shadow-sm">
+    <div className="w-12 h-12 flex items-center justify-center rounded-lg text-[#d4dde3] font-bold text-lg shrink-0" style={{ backgroundColor: COLORS.cardtext }}>
       {report.id ? (report.id.slice(0, 2).toUpperCase()) : 'R?'}
     </div>
     <div className="flex-1">
-      <p className="text-base font-semibold leading-snug" style={{ color: COLORS.textDark }}>{report.details ?? 'No details'}</p>
+      <p className="text-base font-semibold leading-snug" style={{ color: COLORS.cardtext }}>{report.details ?? 'No details'}</p>
       <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>
         <span className="block line-clamp-1">{report.source ?? '—'}</span>
         <span className="block text-xs font-medium">{report.risk_level ?? 'Unknown'} • {typeof report.latitude === 'number' ? report.latitude.toFixed(4) : '—'},{' '}{typeof report.longitude === 'number' ? report.longitude.toFixed(4) : '—'}</span>
@@ -105,7 +125,7 @@ const RecentFloodReportsList = ({ mapPoints }) => {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold" style={{ color: COLORS.textDark }}>Recent Flood Reports</h2>
+      <h2 className="text-xl font-bold" style={{ color: COLORS.cardtext }}>Recent Flood Reports</h2>
       <div className="space-y-4">
         {firstTwo.length === 0 ? (
           <div className="p-4 rounded-xl bg-white border border-gray-100 shadow-sm text-sm text-gray-500">No recent reports.</div>
@@ -123,14 +143,15 @@ const ActiveAlertsList = ({ mapPoints }) => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-xl font-bold" style={{ color: COLORS.textDark }}>Active Alerts</h3>
-      <div className="space-y-3 p-4 rounded-xl bg-white border border-gray-100 shadow-sm max-h-96 overflow-y-auto">
+      <h3 className="text-xl font-bold" style={{ color: COLORS.cardtext }}>Active Alerts</h3>
+      <div className="space-y-3 p-4 rounded-xl bg-[#ffffff] border border-gray-100 shadow-sm max-h-96 overflow-y-auto">
         {highAlerts.length === 0 && <div className="text-sm text-gray-500 italic">No high-risk alerts.</div>}
         {highAlerts.map(alert => (
           <div key={alert.id} className="flex items-start gap-3">
-            <div className="w-2 h-2 mt-2 rounded-full shrink-0" style={{ backgroundColor: COLORS.criticalRed }}></div>
+            {/* Kept criticalRed as COLORS.cardtext for now, which is #06304f */}
+            <div className="w-2 h-2 mt-2 rounded-full shrink-0" style={{ backgroundColor: COLORS.cardtext }}></div>
             <div className="flex-1">
-              <p className="text-sm font-medium leading-tight" style={{ color: COLORS.textDark }}>{alert.details ?? 'High risk reported'}</p>
+              <p className="text-sm font-medium leading-tight" style={{ color: COLORS.cardtext }}>{alert.details ?? 'High risk reported'}</p>
               <p className="text-xs mt-0.5" style={{ color: COLORS.textMuted }}>{alert.source ?? '—'}</p>
               <p className="text-xs mt-0.5" style={{ color: COLORS.textMuted }}>{typeof alert.latitude === 'number' ? alert.latitude.toFixed(4) : '—'}, {typeof alert.longitude === 'number' ? alert.longitude.toFixed(4) : '—'}</p>
             </div>
@@ -141,13 +162,14 @@ const ActiveAlertsList = ({ mapPoints }) => {
   );
 };
 
-// --- WeatherCard (unchanged functionality) ---
+// --- WeatherCard (cleanup: added AbortController logic) ---
 const WeatherCard = () => {
   const [weather, setWeather] = useState(null);
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [weatherError, setWeatherError] = useState(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchWeather = async () => {
       if (!OPENWEATHER_API_KEY) {
         setWeatherError("OpenWeather API Key is missing or not configured.");
@@ -156,18 +178,23 @@ const WeatherCard = () => {
       }
       const url = `https://api.openweathermap.org/data/2.5/weather?q=${DEFAULT_CITY}&appid=${OPENWEATHER_API_KEY}&units=metric`;
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
         const data = await res.json();
         setWeather(data);
       } catch (err) {
-        console.error("Weather fetch error:", err);
-        setWeatherError(err.message || "Could not load weather.");
+        if (err.name !== 'AbortError') {
+          console.error("Weather fetch error:", err);
+          setWeatherError(err.message || "Could not load weather.");
+        }
       } finally {
-        setLoadingWeather(false);
+        if (!controller.signal.aborted) setLoadingWeather(false);
       }
     };
+    
     fetchWeather();
+
+    return () => controller.abort();
   }, []);
 
   if (loadingWeather) {
@@ -203,8 +230,8 @@ const WeatherCard = () => {
   const city = weather.name;
 
   return (
-    <div className="p-4 rounded-xl shadow-lg h-full min-h-48 lg:min-h-56 flex items-center justify-center" style={{ backgroundColor: COLORS.weatherBlue }}>
-      <div className="flex flex-col items-center justify-center h-full text-gray-900">
+    <div className="p-4 rounded-xl shadow-lg h-full min-h-48 lg:min-h-56 flex items-center justify-center" style={{ backgroundColor: '#C0E2DE'}}>
+      <div className="flex flex-col items-center justify-center h-full text-[#06304f]">
         <div className="text-center mb-2">
           <p className="text-xl font-bold uppercase">{city}</p>
         </div>
@@ -215,7 +242,7 @@ const WeatherCard = () => {
           </div>
         </div>
         <p className="text-lg font-semibold capitalize mt-2">{description}</p>
-        <div className="flex space-x-4 text-sm mt-3 text-gray-700">
+        <div className="flex space-x-4 text-sm mt-3 text-[#06304f]">
           <div className="flex items-center">
             <Thermometer className="w-4 h-4 mr-1" />
             <span>Feels: {Math.round(weather.main.feels_like)}°C</span>
@@ -230,14 +257,14 @@ const WeatherCard = () => {
   );
 };
 
-// --- Pin SVG used for markers ---
+// --- Pin SVG used for markers (unchanged) ---
 const Pin = ({ color = '#6B7280' }) => (
   <svg height="28" viewBox="0 0 24 24" style={{ cursor: 'pointer', fill: color, stroke: 'none' }}>
     <path d="M12 0C7.58 0 4 3.58 4 8c0 5.5 8 13 8 13s8-7.5 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
   </svg>
 );
 
-// --- HomeMap component now accepts mapPoints prop (no internal fetch) ---
+// --- HomeMap component (unchanged) ---
 const HomeMap = ({ mapPoints }) => {
   const [popupInfo, setPopupInfo] = useState(null);
 
@@ -282,10 +309,10 @@ const HomeMap = ({ mapPoints }) => {
   }).filter(Boolean) : []), [mapPoints]);
 
   return (
-    <div className="p-4 rounded-xl shadow-lg bg-white h-full border border-gray-100">
-      <div className="p-4 bg-gray-50 border-b border-gray-200 rounded-t-xl mb-3">
+    <div className="p-4 rounded-xl shadow-lg h-full bg-white border-gray-100">
+      <div className="p-4 bg-[#ffffff] border-b border-gray-200 rounded-t-xl mb-3">
         <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-          <MapPin className="w-5 h-5 mr-2 text-blue-500" /> Flood Risk Map
+          <MapPin className="w-5 h-5 mr-2 text-[#06304f]" /> Flood Risk Map
         </h3>
         <div className="flex items-center gap-4 mt-2 text-xs">
           <div className="flex items-center">
@@ -395,8 +422,14 @@ const HomeContent = () => {
     };
   }, [fetchDashboardData]);
 
+  // Updated to use a simple background color style
+  const mainBackgroundStyle = {
+    backgroundColor: COLORS.bg,
+    minHeight: '100vh', 
+  };
+
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6" style={{ backgroundColor: COLORS.bg }}>
+    <div className="p-4 md:p-6 pb-24 space-y-6" style={mainBackgroundStyle}>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7"><WelcomeBanner /></div>
         <div className="lg:col-span-5"><WeatherCard /></div>

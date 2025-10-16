@@ -1,4 +1,3 @@
-// components/Sidebar/Sidebar.jsx
 import React from 'react';
 import {
   MapPin,
@@ -12,11 +11,12 @@ import {
 } from 'lucide-react';
 
 const COLORS = {
-  bg: '#F5F7FA',
-  sidebar: '#FFFFFF',
-  textDark: '#333333',
-  textMuted: '#888888',
-  accentBlue: '#6A96FF',
+  // ✅ CHANGE: This color defines the main application background (outside the sidebar)
+  bg: '#FFFAED', 
+  sidebar: '#FFFAED',
+  textDark: '#06304f',
+  textMuted: '#06304f',
+  accentBlue: '#1F6783',
 };
 
 const MENU_ITEMS = [

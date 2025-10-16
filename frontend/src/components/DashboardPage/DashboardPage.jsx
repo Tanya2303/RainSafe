@@ -3,7 +3,31 @@ import { MapPin, AlertTriangle, List, BarChart2 } from 'lucide-react';
 import Map, { Marker, Popup, NavigationControl, ScaleControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
+// Assuming FixedHeader is in a separate file (e.g., './FixedHeader')
+// If you cannot create a new file, you must define the FixedHeader component 
+// within this file and change the imports accordingly.
+// For demonstration, I will integrate the fixed header content directly 
+// into the existing DashboardPage to keep it a single file change.
+
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+// Define the target heading color
+const HEADING_COLOR = '#06304f'; 
+
+// Define the new background color
+const PAGE_BG_COLOR = '#FFFAED'; // The requested background color
+
+// --- Header Component Definition (Integrated for simplicity) ---
+const HeaderContent = () => (
+    // Reinstated top and bottom padding here
+    <header className="p-4 md:p-8 pb-0">
+        <h1 className="text-3xl font-extrabold flex items-center " style={{ color: HEADING_COLOR }}>
+            <MapPin className="w-8 h-8 mr-2 text-blue-600" /> Flood Monitoring Dashboard
+        </h1>
+        {/* Helper text color changed */}
+        <p className="mt-1" style={{ color: HEADING_COLOR }}>Overview of real-time user-reported flood data. Data refreshes every 30 seconds.</p>
+    </header>
+);
+// -----------------------------------------------------------------
 
 // Helper function to determine badge color
 const getRiskColor = (risk = '') => {
@@ -11,6 +35,7 @@ const getRiskColor = (risk = '') => {
     case 'high':
       return 'bg-red-100 text-red-800 border-red-300';
     case 'medium':
+    case 'moderate': // Added moderate as it often falls here
       return 'bg-yellow-100 text-yellow-800 border-yellow-300';
     case 'low':
       return 'bg-green-100 text-green-800 border-green-300';
@@ -23,7 +48,7 @@ const getRiskColor = (risk = '') => {
 const StatCard = ({ title, count, icon: Icon, color }) => (
   <div className={`p-6 bg-white rounded-xl shadow-lg border-l-4 ${color} transform transition duration-300 hover:scale-[1.02]`}>
     <div className="flex items-center justify-between">
-      <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">{title}</p>
+      <p className="text-sm font-medium uppercase tracking-wider" style={{ color: HEADING_COLOR }}>{title}</p>
       <Icon className={`w-6 h-6 ${color.replace('border-', 'text-')}`} />
     </div>
     <p className="text-3xl font-bold mt-1 text-gray-900">{count}</p>
@@ -39,12 +64,10 @@ const Pin = ({ color }) => (
 
 // Main Dashboard Component
 const DashboardPage = () => {
-  // UPDATED: Initial state to include the new 'stats' structure
   const [data, setData] = useState({ 
     map_points: [], 
     stats: { total_reports: 0, high_risk_count: 0, medium_risk_count: 0 } 
   });
-  // NEW: State for alerts
   const [alerts, setAlerts] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -52,17 +75,14 @@ const DashboardPage = () => {
   const [popupInfo, setPopupInfo] = useState(null);
   const [activeTab, setActiveTab] = useState('Map');
 
-  // Use useCallback to prevent fetchData from being recreated on every render
   const fetchData = useCallback(async (controller) => {
-    // Only show loading state on initial mount, not on every poll
     if (data.map_points.length === 0) setLoading(true); 
     setError(null);
 
     try {
-      // Use Promise.all to fetch in parallel
       const [dashboardRes, alertsRes] = await Promise.all([
         fetch('http://localhost:8000/dashboard-data', { signal: controller.signal }),
-        fetch('http://localhost:8000/alerts', { signal: controller.signal })
+        fetch('http://localhost:8000/alerts/recent', { signal: controller.signal })
       ]);
 
       if (!dashboardRes.ok) {
@@ -77,7 +97,6 @@ const DashboardPage = () => {
       const dashboardPayload = await dashboardRes.json();
       const alertsPayload = await alertsRes.json();
 
-      // UPDATED: Use the pre-calculated stats from the backend
       setData({
         map_points: Array.isArray(dashboardPayload.map_points) ? dashboardPayload.map_points : [],
         stats: dashboardPayload.stats ?? { total_reports: 0, high_risk_count: 0, medium_risk_count: 0 },
@@ -92,35 +111,28 @@ const DashboardPage = () => {
     } finally {
       if (!controller.signal.aborted) setLoading(false);
     }
-  }, [data.map_points.length]); // Dependency only needed to control initial loading state
+  }, [data.map_points.length]);
 
-  // Fetch backend data and set up polling
   useEffect(() => {
     const controller = new AbortController();
-    
-    // Fetch data immediately when the component mounts
     fetchData(controller);
 
-    // Set up an interval to fetch data every 30 seconds
     const intervalId = setInterval(() => {
       fetchData(controller);
-    }, 30000); // 30,000 milliseconds = 30 seconds
+    }, 30000);
 
-    // Cleanup function: this runs when the component unmounts
     return () => {
-      clearInterval(intervalId); // Stop the polling
-      controller.abort(); // Cancel any ongoing fetch request
+      clearInterval(intervalId);
+      controller.abort();
     };
   }, [fetchData]);
 
-  // Use the pre-calculated stats directly
   const { map_points, stats } = data;
   const totalReports = stats.total_reports;
   const highRiskCount = stats.high_risk_count;
   const mediumRiskCount = stats.medium_risk_count;
 
 
-  // Get marker color based on risk level
   const getMarkerColor = (risk) => {
     switch ((risk || '').toLowerCase()) {
       case 'high':
@@ -134,11 +146,9 @@ const DashboardPage = () => {
     }
   };
 
-  // Create pins with useMemo
   const pins = useMemo(
     () =>
       map_points.map((point, index) => {
-        // Filter out reports with invalid lat/lon
         if (typeof point.latitude !== 'number' || typeof point.longitude !== 'number' || point.latitude < -90 || point.latitude > 90) return null;
         
         return (
@@ -161,7 +171,7 @@ const DashboardPage = () => {
 
   const ReportsTable = () => (
     <div className="bg-white p-6 rounded-xl shadow-lg mt-6 overflow-x-auto">
-      <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <h3 className="text-xl font-semibold mb-4 flex items-center" style={{ color: HEADING_COLOR }}>
         <List className="w-5 h-5 mr-2 text-blue-500" /> Latest User Reports
       </h3>
 
@@ -202,12 +212,10 @@ const DashboardPage = () => {
   );
 
   const MapSection = () => {
-    // Calculate center based on valid data points or use default
     const initialViewState = useMemo(() => {
       const validPoints = map_points.filter(p => typeof p.latitude === 'number' && typeof p.longitude === 'number' && p.latitude >= -90 && p.latitude <= 90);
       
       if (validPoints.length > 0) {
-        // Simple centering on the first valid point
         return {
           latitude: validPoints[0].latitude,
           longitude: validPoints[0].longitude,
@@ -217,7 +225,7 @@ const DashboardPage = () => {
         };
       }
       return {
-        latitude: 15.3173, // Default center (e.g., India)
+        latitude: 15.3173,
         longitude: 75.7139,
         zoom: 7,
         bearing: 0,
@@ -229,7 +237,7 @@ const DashboardPage = () => {
     return (
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+          <h3 className="text-lg font-semibold flex items-center" style={{ color: HEADING_COLOR }}>
             <MapPin className="w-5 h-5 mr-2 text-blue-500" /> Flood Risk Map
           </h3>
           <div className="flex items-center gap-4 mt-2 text-xs">
@@ -296,10 +304,9 @@ const DashboardPage = () => {
     );
   };
 
-  // UPDATED: AlertPage component to use the new 'alerts' state from the backend
   const AlertPage = () => (
     <div className="bg-white p-6 rounded-xl shadow-lg h-[500px]">
-      <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+      <h3 className="text-xl font-semibold mb-4 flex items-center" style={{ color: HEADING_COLOR }}>
         <AlertTriangle className="w-5 h-5 mr-2 text-yellow-500" /> Active Alerts Summary
       </h3>
       <div className="space-y-4 overflow-y-auto max-h-[380px] pr-2">
@@ -323,72 +330,83 @@ const DashboardPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <header className="mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900 flex items-center">
-          <MapPin className="w-8 h-8 mr-2 text-blue-600" /> Flood Monitoring Dashboard
-        </h1>
-        <p className="text-gray-600 mt-1">Overview of real-time user-reported flood data. Data refreshes every 30 seconds.</p>
-      </header>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center text-gray-600">
-            <svg className="animate-spin w-8 h-8 mx-auto mb-3" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-            <p>Loading dashboard data…</p>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6">
-          <strong className="font-medium">Error:</strong> {error}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-        <StatCard 
-          title="Total Reports" 
-          count={totalReports} 
-          icon={List} 
-          color="border-blue-500"
-        />
-        <StatCard 
-          title="High Risk Areas" 
-          count={highRiskCount} 
-          icon={AlertTriangle} 
-          color="border-red-500"
-        />
-        <StatCard 
-          title="Medium Risk Areas" 
-          count={mediumRiskCount} 
-          icon={BarChart2} 
-          color="border-yellow-500"
-        />
-      </div>
+    // ✅ 1. Outer container: sets the background for the entire content area
+    <div 
+      className="min-h-screen" 
+      style={{ backgroundColor: PAGE_BG_COLOR }}
+    >
       
-      <div className="flex border-b border-gray-200 mb-6">
-        {['Map', 'Reports', 'Alerts'].map((tab) => (
-          <button
-            key={tab}
-            className={`py-2 px-4 text-sm font-medium transition duration-150 ease-in-out ${
-              activeTab === tab 
-                ? 'border-b-2 border-blue-600 text-blue-600' 
-                : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
+      {/* ✅ 2. Header Content: The header's padding classes (p-4 md:p-8) are now applied 
+        directly to the HeaderContent wrapper, allowing the PAGE_BG_COLOR to show 
+        in the background of the header area.
+      */}
+      <HeaderContent />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-3">
-          {activeTab === 'Map' && <MapSection />}
-          {activeTab === 'Reports' && <ReportsTable />}
-          {activeTab === 'Alerts' && <AlertPage />}
+      {/* ✅ 3. Inner content wrapper: applies horizontal padding and bottom padding */}
+      <div className="px-4 md:px-8 pb-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center text-gray-600">
+              <svg className="animate-spin w-8 h-8 mx-auto mb-3" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              <p>Loading dashboard data…</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6">
+            <strong className="font-medium">Error:</strong> {error}
+          </div>
+        ) : null}
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+          <StatCard 
+            title="Total Reports" 
+            count={totalReports} 
+            icon={List} 
+            color="border-blue-500"
+          />
+          <StatCard 
+            title="High Risk Areas" 
+            count={highRiskCount} 
+            icon={AlertTriangle} 
+            color="border-red-500"
+          />
+          <StatCard 
+            title="Medium Risk Areas" 
+            count={mediumRiskCount} 
+            icon={BarChart2} 
+            color="border-yellow-500"
+          />
+        </div>
+        
+        <div className="flex border-b border-gray-200 mb-6">
+          {['Map', 'Reports', 'Alerts'].map((tab) => (
+            <button
+              key={tab}
+              className={`py-2 px-4 text-sm font-medium transition duration-150 ease-in-out ${
+                activeTab === tab 
+                  ? 'border-b-2 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+              onClick={() => setActiveTab(tab)}
+              style={{ 
+                color: activeTab === tab ? HEADING_COLOR : undefined,
+                borderColor: activeTab === tab ? '#3B82F6' : undefined,
+              }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-3">
+            {activeTab === 'Map' && <MapSection />}
+            {activeTab === 'Reports' && <ReportsTable />}
+            {activeTab === 'Alerts' && <AlertPage />}
+          </div>
         </div>
       </div>
     </div>

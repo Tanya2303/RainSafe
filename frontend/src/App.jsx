@@ -101,7 +101,7 @@ function App() {
         />
       )}
 
-      <div className={showSidebar ? "flex-1 flex flex-col overflow-x-hidden" : "w-full"}>
+      <div className={showSidebar ? "flex-1 flex flex-col overflow-x-hidden bg-[#FFFAED]" : "w-full"}>
         {renderPage()}
       </div>
     </div>

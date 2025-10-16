@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import bg11 from '../assets/bg111.jpg';
 
 // AuthPage now accepts onAuthSuccess prop from App.jsx
 const AuthPage = ({ onAuthSuccess }) => {
@@ -19,10 +20,10 @@ const AuthPage = ({ onAuthSuccess }) => {
   // Color palette as specified
   const colors = {
     background: '#F5F7FA',
-    card: '#FFFFFF',
-    primaryText: '#333333',
-    secondaryText: '#888888',
-    accentBlue: '#6A96FF',
+    card: '#e2edeb', // d
+    primaryText: '#06304f', //d
+    secondaryText: '#286198', //d
+    accentBlue: '#1F6783',
     accentGreen: '#4CAF50',
     accentYellow: '#FFC107',
     accentOrange: '#FF8C00',
@@ -134,32 +135,21 @@ const AuthPage = ({ onAuthSuccess }) => {
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: colors.background }}
+      // ✅ 1. Apply bg11.jpeg as the full-page background
+      style={{ 
+        backgroundImage: `url(${bg11})`, 
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
     >
       <div className="w-full max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left side - Illustration area for desktop */}
-          <div className="hidden lg:block">
-            <div 
-              className="h-96 rounded-2xl flex items-center justify-center relative overflow-hidden"
-              style={{ 
-                background: `linear-gradient(135deg, ${colors.accentBlue}20, ${colors.accentBlue}40)`
-              }}
-            >
-              {/* Decorative elements */}
-              <div className="absolute top-8 left-8 w-16 h-16 rounded-full opacity-20" style={{ backgroundColor: colors.accentBlue }}></div>
-              <div className="absolute bottom-8 right-8 w-12 h-12 rounded-full opacity-30" style={{ backgroundColor: colors.accentYellow }}></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="text-6xl">🌧️</div>
-                <div className="text-center mt-4">
-                  <h2 className="text-2xl font-bold" style={{ color: colors.primaryText }}>RainSafe</h2>
-                  <p className="text-sm mt-2" style={{ color: colors.secondaryText }}>Weather Intelligence Platform</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* ✅ 2. Change the grid layout to a single column (grid-cols-1) */}
+        <div className="grid grid-cols-1 gap-8 items-center">
+          
+          {/* ❌ Left side - Illustration area (DELETED) */}
 
-          {/* Right side - Auth form */}
+          {/* Right side - Auth form (Now centered) */}
           <div className="w-full max-w-md mx-auto">
             <div 
               className="bg-white rounded-2xl shadow-xl p-8 transition-all duration-300"

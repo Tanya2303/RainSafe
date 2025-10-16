@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import MapGL, { Source, Layer } from 'react-map-gl/mapbox';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
+const PAGE_BG_COLOR = '#FFFAED'; // Defined the requested background color
 
 // Define the heatmap layer style
 const heatmapLayer = {
@@ -100,10 +101,13 @@ const MapPage = () => {
   }
 
   return (
-    <div className="w-full h-[80vh] p-4">
+    <div 
+      className="w-full h-full min-h-screen p-4" 
+      style={{ backgroundColor: PAGE_BG_COLOR }} // Apply the background color here
+    >
       <MapGL
         initialViewState={initialViewState}
-        style={{ width: '100%', height: '100%', borderRadius: '4' }}
+        style={{ width: '100%', height: '100%', borderRadius: '0.75rem', overflow: 'hidden' }} // Added rounded corners to the map itself
         mapStyle="mapbox://styles/mapbox/dark-v9"
         mapboxAccessToken={MAPBOX_TOKEN}
       >
