@@ -67,8 +67,8 @@ class RiskAssessmentService:
 
     async def gather_features_for_prediction(self, lat: float, lon: float) -> Dict[str, Any]:
         """
-        Gathers live weather data and formats it with the EXACT feature names
-        expected by the trained model.
+        Builds a complete feature dictionary for the Bangalore model,
+        combining live weather data with reasonable default values.
         """
         features: Dict[str, Any] = {}
         weather_data_found = False
@@ -76,19 +76,28 @@ class RiskAssessmentService:
         weather = await self.fetch_weather_data(lat, lon)
         if weather and "main" in weather:
             weather_data_found = True
-            # The keys here EXACTLY match the column names from your training data
-            features["Temperature (°C)"] = weather["main"].get("temp", 0)
-            features["Humidity (%)"] = weather["main"].get("humidity", 0)
-            features["Pressure"] = weather["main"].get("pressure", 0)
-            features["Wind Speed"] = weather.get("wind", {}).get("speed", 0)
+            # --- Map live weather data to the EXACT training column names ---
+            features["Temperature"] = weather["main"].get("temp", 0)
+            features["Humidity"] = weather["main"].get("humidity", 0)
+            features["Atmospheric_Pressure"] = weather["main"].get("pressure", 0)
+            features["Rainfall_Intensity"] = weather.get("rain", {}).get("1h", 0)
+        else:
+            print(f"⚠️ No valid weather data found at {lat}, {lon}. Using defaults.")
 
-            precipitation = weather.get("rain", {}).get("1h", 0)
-            if not precipitation and "snow" in weather:
-                precipitation = weather.get("snow", {}).get("1h", 0)
-            features["Rainfall (mm)"] = precipitation
-        
-        # The FloodPredictor is designed to handle all other features 
-        # (like 'Land Cover', 'Soil Type') by filling them with 0. This is correct.
+        # --- Provide reasonable default values for features NOT available from the live weather API ---
+        # These are based on the general characteristics of Bangalore.
+        features.update({
+            "Latitude": lat,
+            "Longitude": lon,
+            "Altitude": 900,  # Average altitude of Bangalore in meters
+            "River_Level": 5.0, # A neutral, average river level on a scale of 0-10
+            "Drainage_Capacity": 50.0, # Assuming a moderate capacity on a scale of 0-100
+            "Drainage_System_Condition": 5.0, # Assuming an average condition on a scale of 0-10
+            "Population_Density": 4381, # Average for Bangalore urban area
+            "Urbanization_Level": 0.8, # High urbanization on a scale of 0-1
+            # Note: Wind Speed is not in the Bangalore dataset, so we don't include it.
+        })
+
         return {"features": features, "weather_data_found": weather_data_found}
 
     async def get_risk_prediction(
@@ -102,7 +111,7 @@ class RiskAssessmentService:
         threshold_assessment = RiskLevel.LOW 
         contributing_factors: List[str] = []
         weather_found = False
-
+        
         try:
             # --- Part 1: Threshold-Based Risk from User Reports ---
             user_reports = await self.get_recent_reports_count(lat, lon)
@@ -116,36 +125,19 @@ class RiskAssessmentService:
                 threshold_assessment = RiskLevel.LOW
 
             # --- Part 2: ML-Based Risk from Weather Data ---
-            features_data: Dict[str, Any] = {}
-            if predictor and predictor.is_ready:
-                # Start with all features as 0
-                for feature in predictor._feature_names:
-                    features_data[feature] = 0
+            features_data = await self.gather_features_for_prediction(lat, lon)
+            weather_found = features_data["weather_data_found"]
 
-                # Fetch weather and overwrite relevant features
-                weather = await self.fetch_weather_data(lat, lon)
-                weather_found = bool(weather)
-                if weather and "main" in weather:
-                    features_data["Temperature (°C)"] = weather["main"].get("temp", 0)
-                    features_data["Humidity (%)"] = weather["main"].get("humidity", 0)
-                    features_data["Pressure"] = weather["main"].get("pressure", 0)
-                    features_data["Wind Speed"] = weather.get("wind", {}).get("speed", 0)
-                    precipitation = weather.get("rain", {}).get("1h", 0) or weather.get("snow", {}).get("1h", 0)
-                    features_data["Rainfall (mm)"] = precipitation
-
-                # Make ML prediction
-                if weather_found:
-                    try:
-                        prediction_result = predictor.predict([features_data])[0]
-                        ml_assessment = RiskLevel(prediction_result)
-                        contributing_factors.append(f"ML model predicted: {ml_assessment.value}.")
-                    except Exception as e:
-                        print(f"⚠️ ML prediction failed: {e}")
-                        contributing_factors.append("ML model prediction error.")
-                else:
-                    contributing_factors.append("Weather data missing; ML model not applied.")
+            if predictor and predictor.is_ready and weather_found:
+                try:
+                    prediction_result = predictor.predict([features_data["features"]])[0]
+                    ml_assessment = RiskLevel(prediction_result)
+                    contributing_factors.append(f"ML model predicted: {ml_assessment.value}.")
+                except Exception as e:
+                    print(f"⚠️ ML prediction failed: {e}")
+                    contributing_factors.append("ML model prediction error.")
             else:
-                contributing_factors.append("ML model not ready.")
+                contributing_factors.append("ML model not ready or weather data missing.")
 
             # --- Part 3: Combine Results for Final Risk ---
             if RiskLevel.HIGH in (threshold_assessment, ml_assessment):
@@ -154,7 +146,7 @@ class RiskAssessmentService:
                 final_risk = RiskLevel.MEDIUM
             else:
                 final_risk = RiskLevel.LOW
-
+            
             recommendations = {
                 RiskLevel.LOW: "Conditions appear safe. Remain aware of weather changes.",
                 RiskLevel.MEDIUM: "Potential for localized flooding. Exercise caution.",
@@ -177,13 +169,9 @@ class RiskAssessmentService:
         except Exception as e:
             print(f"🚨 Overall risk assessment failed: {e}")
             return PredictionResult(
-                final_risk=RiskLevel.UNKNOWN,
-                source=AssessmentSource.ERROR,
-                threshold_assessment=RiskLevel.UNKNOWN,
-                ml_assessment=RiskLevel.UNKNOWN,
-                user_reports_found=user_reports,
-                weather_data_found=weather_found,
+                final_risk=RiskLevel.UNKNOWN, source=AssessmentSource.ERROR,
+                threshold_assessment=RiskLevel.UNKNOWN, ml_assessment=RiskLevel.UNKNOWN,
+                user_reports_found=user_reports, weather_data_found=weather_found,
                 contributing_factors=["An unexpected system error occurred."],
-                recommendation="Please try again later.",
-                error=str(e),
+                recommendation="Please try again later.", error=str(e),
             )

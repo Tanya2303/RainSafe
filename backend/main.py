@@ -1,3 +1,4 @@
+
 """
 RainSafe Backend - Main Application (with Dependency Injection)
 """
@@ -268,7 +269,7 @@ async def get_dashboard_data(
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
 
 
-@app.post("/alerts", response_model=Alert, status_code=status.HTTP_201_CREATED)
+@app.post("/alerts/send", response_model=Alert, status_code=status.HTTP_201_CREATED)
 async def send_alert(alert_data: Alert):
     """Manually send and log a new flood alert."""
     try:
@@ -288,7 +289,7 @@ async def send_alert(alert_data: Alert):
         raise HTTPException(status_code=500, detail=f"Failed to send/log alert: {str(e)}")
 
 
-@app.get("/alerts", response_model=List[Alert])
+@app.get("/alerts/recent", response_model=List[Alert])
 async def get_alerts():
     """Retrieve the most recent system alerts."""
     try:
