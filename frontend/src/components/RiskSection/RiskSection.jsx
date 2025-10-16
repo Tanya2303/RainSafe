@@ -1,8 +1,11 @@
 // components/RiskSection/RiskSection.jsx
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
+import Map, { Marker, NavigationControl, ScaleControl } from "react-map-gl/mapbox";
+import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
+// SAMPLE_RESPONSE unchanged
 const SAMPLE_RESPONSE = {
   risk_level: "Medium",
   source: "hybrid-historical",
@@ -29,13 +32,28 @@ const colorForRisk = (r) => {
   return "bg-gray-300 text-gray-800";
 };
 
+const BluePin = () => (
+  <svg height="28" viewBox="0 0 24 24" style={{ cursor: "pointer", fill: "#3B82F6", stroke: "none" }}>
+    <path d="M12 0C7.58 0 4 3.58 4 8c0 5.5 8 13 8 13s8-7.5 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
+  </svg>
+);
+
 export default function RiskSection() {
-  const [lat, setLat] = useState("");
-  const [lon, setLon] = useState("");
+  const [lat, setLat] = useState(null);
+  const [lon, setLon] = useState(null);
   const [locationQuery, setLocationQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [risk, setRisk] = useState(null);
   const [error, setError] = useState(null);
+
+  // Controlled map view state so the map recenters when lat/lon change
+  const [viewState, setViewState] = useState({
+    latitude: 15.3173,
+    longitude: 75.7139,
+    zoom: 5,
+    bearing: 0,
+    pitch: 0,
+  });
 
   // Mock risk API
   const fetchRisk = async (latitude, longitude) => {
@@ -43,18 +61,66 @@ export default function RiskSection() {
     return { ...SAMPLE_RESPONSE };
   };
 
-  // Mapbox geocoding
+  /**
+   * Geocode a free-text query but restrict results to Karnataka (India).
+   * - bbox: west,south,east,north (approx Karnataka)
+   * - country=IN to further restrict to India
+   * - proximity: bias results towards Bengaluru (optional)
+   *
+   * NOTE: bbox is a hard filter (Mapbox will only return features inside it).
+   */
   const geocodeLocation = async (query) => {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-      query
-    )}.json?access_token=${MAPBOX_TOKEN}&limit=1`;
+    if (!MAPBOX_TOKEN) throw new Error("Mapbox token not configured.");
+    const encoded = encodeURIComponent(query);
+
+    // Karnataka bbox: west, south, east, north
+    const karnatakaBbox = "74.0,11.0,78.6,18.6";
+
+    // Optional: bias results towards Bengaluru (lat:12.9716, lon:77.5946)
+    const proximity = "77.5946,12.9716";
+
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=IN&bbox=${karnatakaBbox}&proximity=${proximity}`;
+
     const res = await fetch(url);
-    const data = await res.json();
-    if (data.features && data.features.length > 0) {
-      const [lng, lat] = data.features[0].center;
-      return { lat, lng };
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Geocode failed: ${res.status} ${res.statusText} ${txt}`);
     }
-    throw new Error("Location not found");
+    const data = await res.json();
+
+    // If no features inside the bbox, try a fallback: geocode without bbox but with country=IN+proximity
+    if (!data.features || data.features.length === 0) {
+      // fallback attempt to still prefer India but be lenient
+      const fallbackUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encoded}.json?access_token=${MAPBOX_TOKEN}&limit=1&country=IN&proximity=${proximity}`;
+      const fallbackRes = await fetch(fallbackUrl);
+      if (!fallbackRes.ok) {
+        const txt = await fallbackRes.text().catch(() => "");
+        throw new Error(`Geocode fallback failed: ${fallbackRes.status} ${fallbackRes.statusText} ${txt}`);
+      }
+      const fallbackData = await fallbackRes.json();
+      if (fallbackData.features && fallbackData.features.length > 0) {
+        const [lng, lat] = fallbackData.features[0].center;
+        return { lat, lng, source: "fallback" };
+      }
+      throw new Error("Location not found in Karnataka (or India).");
+    }
+
+    const [lng, lat] = data.features[0].center;
+    return { lat, lng, source: "bbox" };
+  };
+
+  // Helper to update coords and recenter map
+  const setCoordsAndCenter = (latitude, longitude) => {
+    const latNum = Number(latitude);
+    const lonNum = Number(longitude);
+    setLat(latNum);
+    setLon(lonNum);
+    setViewState((vs) => ({
+      ...vs,
+      latitude: latNum,
+      longitude: lonNum,
+      zoom: 12, // closer zoom when a location is selected
+    }));
   };
 
   // Set coordinates from search (does NOT fetch risk)
@@ -64,11 +130,10 @@ export default function RiskSection() {
     if (!locationQuery) return setError("Enter a location name.");
     setLoading(true);
     try {
-      const { lat, lng } = await geocodeLocation(locationQuery);
-      setLat(lat.toFixed(6));
-      setLon(lng.toFixed(6));
+      const result = await geocodeLocation(locationQuery);
+      setCoordsAndCenter(result.lat, result.lng);
     } catch (e) {
-      setError(e.message);
+      setError(e.message || "Search failed");
     } finally {
       setLoading(false);
     }
@@ -77,15 +142,14 @@ export default function RiskSection() {
   // Set coordinates from current location (does NOT fetch risk)
   const handleUseMyLocation = () => {
     setError(null);
-    setRisk(null); // Clear previous risk
+    setRisk(null);
     if (!navigator.geolocation) {
       setError("Geolocation not supported by this browser.");
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLat(pos.coords.latitude.toFixed(6));
-        setLon(pos.coords.longitude.toFixed(6));
+        setCoordsAndCenter(pos.coords.latitude, pos.coords.longitude);
       },
       () => setError("Permission denied or unable to fetch location."),
       { enableHighAccuracy: true }
@@ -95,7 +159,7 @@ export default function RiskSection() {
   // Fetch risk for current coordinates
   const handleCheckRisk = async () => {
     setError(null);
-    if (!lat || !lon) {
+    if (lat === null || lon === null) {
       setError("Please use a location or your current location to check risk.");
       return;
     }
@@ -110,6 +174,7 @@ export default function RiskSection() {
     }
   };
 
+  // Display for ML assessment (preserved)
   const mlAssessmentDisplay = (val) => {
     if (!val || val.toLowerCase() === "unknown") {
       return (
@@ -145,7 +210,7 @@ export default function RiskSection() {
             <input
               value={locationQuery}
               onChange={(e) => setLocationQuery(e.target.value)}
-              placeholder="Search location"
+              placeholder="Search location (restricted to Karnataka)"
               className="px-3 py-2 rounded-md border w-full md:w-[300px]"
             />
             <div className="flex gap-2">
@@ -174,21 +239,29 @@ export default function RiskSection() {
           {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
         </div>
 
-        {/* Map preview */}
+        {/* Map */}
         <div className="mt-4 bg-white rounded-xl p-4 shadow">
           <div className="flex items-center justify-between mb-2">
             <div className="text-sm font-semibold">Map preview</div>
-            <div className="text-xs text-gray-400">Lat: {lat || "—"} • Lon: {lon || "—"}</div>
+            <div className="text-xs text-gray-400">
+              Lat: {lat !== null ? Number(lat).toFixed(6) : "—"} • Lon: {lon !== null ? Number(lon).toFixed(6) : "—"}
+            </div>
           </div>
-          <div className="h-48 rounded-md bg-gray-100 flex items-center justify-center text-gray-400">
-            {lat && lon ? (
-              <div className="text-sm">
-                Marker at {lat}, {lon}
-                <div className="text-xs text-gray-400 mt-1">(Map placeholder)</div>
-              </div>
-            ) : (
-              <div className="text-sm">Search a location or use 'Use my location' to preview map.</div>
-            )}
+          <div className="h-64 rounded-md overflow-hidden">
+            <Map
+              viewState={viewState}
+              onMove={(evt) => setViewState(evt.viewState)}
+              mapStyle="mapbox://styles/mapbox/streets-v12"
+              mapboxAccessToken={MAPBOX_TOKEN}
+            >
+              <NavigationControl position="top-right" />
+              <ScaleControl />
+              {lat !== null && lon !== null && (
+                <Marker latitude={Number(lat)} longitude={Number(lon)} anchor="bottom">
+                  <BluePin />
+                </Marker>
+              )}
+            </Map>
           </div>
         </div>
 
@@ -233,7 +306,7 @@ export default function RiskSection() {
               </div>
             </div>
 
-            {/* Details */}
+            {/* Details (ML + contributing factors restored) */}
             <div className="bg-white rounded-xl p-4 shadow">
               <h3 className="text-sm font-semibold mb-3">Details</h3>
               <div className="space-y-2">
