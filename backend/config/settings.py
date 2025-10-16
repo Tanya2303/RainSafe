@@ -42,7 +42,9 @@ RISK_THRESHOLDS = {
     "WEATHER_THRESHOLDS": {
         "heavy_rain": 10,  # mm/h
         "humidity_high": 80,  # %
-    }
+    },
+    "user_reports_medium_risk": 2,  # Trigger medium risk if more than 2 reports are found
+    "user_reports_high_risk": 5     # Trigger high risk if more than 5 reports are found
 }
 
 # Cron Configuration
