@@ -11,6 +11,10 @@ import {
 import Map, { Marker, Popup, NavigationControl, ScaleControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
+// FIX: Corrected the relative path to assets folder (../../assets/)
+import welcomeBgImage from '../../assets/bg2.jpeg'; 
+
+
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const OPENWEATHER_API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
 const DEFAULT_CITY = 'Bengaluru,IN';
@@ -45,42 +49,62 @@ const getMarkerColor = (risk) => {
 };
 
 
-// 2. APPLY BACKGROUND TO HEADER (MODIFIED)
-const Header = ({ toggleMenu }) => (
-  <header 
-    className="p-4.5 flex items-center justify-end border-b border-gray-200 lg:sticky lg:top-0 z-30"
-    style={{ 
-      backgroundColor: COLORS.bg, 
-    }}
-  >
-    <div className="flex items-center space-x-2 p-1 rounded-full transition-colors cursor-pointer">
-      <div className="flex items-center justify-center w-8 h-8 rounded-full text-black font-semibold text-sm bg-[#E2EDEB]">
-        AJ
-      </div>
-      {/* Text color uses cardtext for visibility on light background */}
-      <span className="hidden sm:block text-sm font-medium" style={{ color: COLORS.cardtext }}>Alyssa Jones</span>
-    </div>
-  </header>
-);
+// 2. APPLY BACKGROUND TO HEADER (MODIFIED TO USE USER PROPS)
+const Header = ({ toggleMenu, currentUser }) => {
+    // [MODIFIED] Use dynamic user name and initials from currentUser prop
+    const userName = currentUser?.name || 'User';
+    // The initials logic comes from App.jsx, but we use a safe default here
+    const userInitials = currentUser?.initials || userName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+    return (
+      <header 
+        className="p-4.5 flex items-center justify-end border-b border-gray-200 lg:sticky lg:top-0 z-30"
+        style={{ 
+          backgroundColor: COLORS.bg, 
+        }}
+      >
+        <div className="flex items-center space-x-2 p-1 rounded-full transition-colors cursor-pointer">
+          {/* [MODIFIED] Use dynamic user initials */}
+          <div className="flex items-center justify-center w-8 h-8 rounded-full text-black font-semibold text-sm bg-[#E2EDEB]">
+            {userInitials}
+          </div>
+          {/* [MODIFIED] Use dynamic user name */}
+          <span className="hidden sm:block text-sm font-medium" style={{ color: COLORS.cardtext }}>{userName}</span>
+        </div>
+      </header>
+    );
+};
+
 
 // 3. INCREASE WELCOME BANNER OPACITY (MODIFIED BACKGROUND AND TEXT COLORS)
-const WelcomeBanner = () => (
-  <div 
-    className="p-6 relative overflow-hidden rounded-xl shadow-sm h-full" 
-    // 2. Set Welcome Banner background color to #0A5C61
-    style={{ backgroundColor: COLORS.welcomeBg }}
-  >
-    {/* Adjusted overlay color for contrast */}
-    <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-15" style={{ backgroundColor: 'white' }} aria-hidden="true" />
-    <div className="relative z-10">
-      {/* Changed text color to white for contrast */}
-      <h1 className="text-5xl font-semibold" style={{ color: 'white' }}>Welcome, Alyssa</h1>
-      <p className="text-l mt-1" style={{ color: 'white' }}>Stay informed and prepared with RainSafe.</p>
-    </div>
-    {/* Adjusted background color for the 'Last updated' badge */}
-    <div className="absolute top-2 right-4 text-s px-2 py-1 rounded-md font-medium" style={{ backgroundColor: COLORS.bg, color: COLORS.cardtext }}>Last updated: 5m ago</div>
-  </div>
-);
+const WelcomeBanner = ({ currentUser }) => {
+    // FIX: Use the 'firstName' property provided by App.jsx's getUserDetails
+    const firstName = currentUser?.firstName || 'User';
+
+    return (
+      <div 
+        className="p-6 relative overflow-hidden rounded-xl shadow-sm h-full bg-cover bg-center" 
+        // [MODIFIED] Using the corrected image path from the import
+        style={{ 
+          backgroundImage: `url(${welcomeBgImage})`,
+          position: 'relative',
+        }}
+      >
+        {/* Add a subtle dark overlay for better text readability on top of the image */}
+        <div className="absolute inset-0 bg-black opacity-30 rounded-xl" aria-hidden="true" />
+        
+        {/* Original overlay color for contrast (kept the original, now over the image) */}
+        <div className="absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-15" style={{ backgroundColor: 'white' }} aria-hidden="true" />
+        <div className="relative z-10">
+          {/* [MODIFIED] Use dynamic first name */}
+          <h1 className="text-5xl font-semibold pt-5" style={{ color: 'white' }}>Welcome, {firstName}</h1>
+          <p className="text-l mt-1" style={{ color: 'white' }}>Stay informed and prepared with RainSafe.</p>
+        </div>
+        {/* Adjusted background color for the 'Last updated' badge */}
+        <div className="absolute top-2 right-4 z-10 text-s px-2 py-1 rounded-md font-medium" style={{ backgroundColor: COLORS.bg, color: COLORS.cardtext }}>Last updated: 5m ago</div>
+      </div>
+    );
+};
 
 const RiskStatCard = ({ value, label, icon: Icon }) => (
   <div className="p-4 rounded-xl shadow-sm border h-full" style={{ borderColor: COLORS.riskAmber, backgroundColor: '#C7E2E9' }}>
@@ -379,7 +403,8 @@ const HomeMap = ({ mapPoints }) => {
 };
 
 // --- HomeContent: fetch dashboard-data and share mapPoints to children ---
-const HomeContent = () => {
+// [MODIFIED] Accept currentUser prop
+const HomeContent = ({ currentUser }) => {
   const [mapPoints, setMapPoints] = useState([]);
   const [loadingPoints, setLoadingPoints] = useState(true);
   const [pointsError, setPointsError] = useState(null);
@@ -430,7 +455,8 @@ const HomeContent = () => {
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6" style={mainBackgroundStyle}>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7"><WelcomeBanner /></div>
+        {/* [MODIFIED] Pass currentUser to WelcomeBanner */}
+        <div className="lg:col-span-7"><WelcomeBanner currentUser={currentUser} /></div>
         <div className="lg:col-span-5"><WeatherCard /></div>
       </div>
 
@@ -475,11 +501,14 @@ const HomeContent = () => {
   );
 };
 
-const Homepage = ({ toggleMenu }) => (
+// [MODIFIED] Accept currentUser prop
+const Homepage = ({ toggleMenu, currentUser }) => (
   <>
-    <Header toggleMenu={toggleMenu} />
+    {/* [MODIFIED] Pass currentUser to Header */}
+    <Header toggleMenu={toggleMenu} currentUser={currentUser} />
     <main>
-      <HomeContent />
+      {/* [MODIFIED] Pass currentUser to HomeContent */}
+      <HomeContent currentUser={currentUser} />
     </main>
   </>
 );

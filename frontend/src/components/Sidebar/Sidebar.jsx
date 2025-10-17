@@ -8,6 +8,7 @@ import {
   Map,
   Layers,
   User,
+  LogOut, // <--- NEW: Import LogOut icon
 } from 'lucide-react';
 
 const COLORS = {
@@ -28,9 +29,14 @@ const MENU_ITEMS = [
   { id: 'RiskPage', name: 'Risk', icon: MapPin }, // <-- NEW: Risk page entry
 ];
 
-const AUTH_ITEM = { id: 'AuthPage', name: 'Login/Sign Up', icon: User };
+// Login/Signup button configuration
+const LOGIN_ITEM = { id: 'AuthPage', name: 'Login/Sign Up', icon: User };
+// Logout button configuration
+const LOGOUT_ITEM = { id: 'Logout', name: 'Logout', icon: LogOut }; 
 
-const Sidebar = ({ isMenuOpen, toggleMenu, currentPage, onNavigate }) => {
+// MODIFIED: Accepts isAuthenticated and onLogout props
+const Sidebar = ({ isMenuOpen, toggleMenu, currentPage, onNavigate, isAuthenticated, onLogout }) => {
+
   const handleNavigation = (id) => {
     onNavigate(id);
     if (isMenuOpen) toggleMenu();
@@ -38,25 +44,57 @@ const Sidebar = ({ isMenuOpen, toggleMenu, currentPage, onNavigate }) => {
 
   const renderNavItem = (item) => {
     const isActive = currentPage === item.id;
-    const isAuthActive = item.id === 'AuthPage' && !isActive && currentPage === 'AuthPage';
 
     return (
       <button
         key={item.id}
         onClick={() => handleNavigation(item.id)}
         className={`w-full flex items-center space-x-3 p-3 rounded-xl font-medium transition-colors duration-150 ${
-          isActive || isAuthActive ? 'text-white shadow-md' : 'hover:bg-gray-50'
+          isActive ? 'text-white shadow-md' : 'hover:bg-gray-50'
         }`}
         style={{
-          backgroundColor: isActive || isAuthActive ? COLORS.accentBlue : COLORS.sidebar,
-          color: isActive || isAuthActive ? 'white' : COLORS.textMuted,
+          backgroundColor: isActive ? COLORS.accentBlue : COLORS.sidebar,
+          color: isActive ? 'white' : COLORS.textMuted,
         }}
       >
-        <item.icon size={20} className={isActive || isAuthActive ? 'text-white' : 'text-gray-500'} />
+        <item.icon size={20} className={isActive ? 'text-white' : 'text-gray-500'} />
         <span className="text-base">{item.name}</span>
       </button>
     );
   };
+  
+  // NEW: Function to render the dynamic authentication item
+  const renderAuthItem = () => {
+    // Determine which button to show based on auth state
+    const item = isAuthenticated ? LOGOUT_ITEM : LOGIN_ITEM;
+    // Highlight the Login button only when on the AuthPage (and not logged in)
+    const isActive = currentPage === 'AuthPage' && !isAuthenticated; 
+
+    return (
+      <button
+        key={item.id}
+        // If authenticated, run the provided onLogout function, otherwise navigate to AuthPage
+        onClick={isAuthenticated ? onLogout : () => handleNavigation('AuthPage')}
+        className={`w-full flex items-center space-x-3 p-3 rounded-xl font-medium transition-colors duration-150 ${
+          isActive ? 'text-white shadow-md' : 'hover:bg-gray-50'
+        }`}
+        style={{
+          // Only style the Login button as active when on the AuthPage
+          backgroundColor: isActive ? COLORS.accentBlue : COLORS.sidebar,
+          color: isActive ? 'white' : COLORS.textMuted,
+        }}
+      >
+        <item.icon 
+          size={20} 
+          // Use textMuted color for unselected icons
+          className={isActive ? 'text-white' : 'text-gray-500'} 
+          style={{ color: isActive ? 'white' : COLORS.textMuted }}
+        />
+        <span className="text-base" style={{ color: isActive ? 'white' : COLORS.textMuted }}>{item.name}</span>
+      </button>
+    );
+  }
+
 
   return (
     <>
@@ -102,8 +140,9 @@ const Sidebar = ({ isMenuOpen, toggleMenu, currentPage, onNavigate }) => {
           {MENU_ITEMS.filter(item => item.id !== 'ReportPage').map(renderNavItem)}
         </nav>
 
+        {/* MODIFIED: Use the dynamic auth item renderer */}
         <nav className="px-4 py-2 space-y-1 mt-auto border-t border-gray-100">
-          {renderNavItem(AUTH_ITEM)}
+          {renderAuthItem()}
         </nav>
       </div>
     </>
