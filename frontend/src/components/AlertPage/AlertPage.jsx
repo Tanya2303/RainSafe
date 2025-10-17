@@ -25,7 +25,7 @@ import { Bell } from "lucide-react";
 
 const severityColors = {
   severe: "bg-red-500",
-  moderate: "bg-blue-500",
+  moderate: "bg-orange-300",
   low: "bg-green-500",
 };
 
@@ -200,7 +200,7 @@ const AlertsPage = () => {
             Severe
           </button>
           <button
-            className={`px-4 py-2 rounded-full font-semibold ${filter === "moderate" ? "bg-blue-500 text-white" : "bg-[#C0E2DE]"}`}
+            className={`px-4 py-2 rounded-full font-semibold ${filter === "moderate" ? "bg-orange-400 text-white" : "bg-[#C0E2DE]"}`}
             onClick={() => setFilter("moderate")}
           >
             Moderate
