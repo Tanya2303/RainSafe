@@ -80,7 +80,6 @@ class Alert(BaseModel):
         from_attributes = True
         allow_population_by_field_name = True
 
-
 # --- Risk Assessment Models ---
 
 class RiskAssessmentDetails(BaseModel):

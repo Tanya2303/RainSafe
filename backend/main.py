@@ -1,39 +1,23 @@
+"""
+RainSafe Backend - Main Application (Refactored & Fixed)
+"""
 
-"""
-RainSafe Backend - Main Application (with Dependency Injection)
-"""
 import asyncio
-import os
+import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
-from app.utils.database import db
-
-import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 import motor.motor_asyncio
-from bson import ObjectId
 from dotenv import load_dotenv
-from fastapi import (
-    BackgroundTasks,
-    Depends,
-    FastAPI,
-    HTTPException,
-    Query,
-    Request,
-    status,
-)
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.models.flood_predictor import FloodPredictor
-
-# Import all necessary models
 from app.models.schemas import (
     Alert,
     AssessmentSource,
-    # DashboardResponse is redefined below to include stats
     MapPoint,
     PredictionResult,
     Report,
@@ -44,53 +28,57 @@ from app.models.schemas import (
     RiskResponse,
     WaterLevel,
 )
-
-# --- Import our services and schemas ---
 from app.services.risk_service import RiskAssessmentService
+from app.utils.database import db
 from app.utils.geocoder import reverse_geocode
-from config.settings import RISK_THRESHOLDS
+from config.settings import RISK_THRESHOLDS, OPENWEATHER_API_KEY
 
-# Load environment variables
+predictor = FloodPredictor()
+
+# --- Logging ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("RainSafe")
+
+# Load env
 load_dotenv()
 
-# --- Redefine Dashboard Models to match the latest version ---
-# These models should ideally be in app/models/schemas.py
+# --- Dashboard Models ---
 class DashboardStats(BaseModel):
     total_reports: int
     high_risk_count: int
     medium_risk_count: int
+
 
 class DashboardResponse(BaseModel):
     map_points: List[MapPoint]
     stats: DashboardStats
 
 
-# --- Dependency Injection Setup ---
-def get_risk_service() -> RiskAssessmentService:
-    """
-    Dependency provider for the RiskAssessmentService.
-    """
-    return RiskAssessmentService(database=db)
+# --- Dependency Injection ---
+def get_risk_service(predictor: Optional[FloodPredictor] = None) -> RiskAssessmentService:
+    return RiskAssessmentService(database=db, predictor=predictor)
 
 
-# --- Lifespan function for startup and shutdown ---
+# --- Lifespan ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifespan for startup and shutdown events."""
-    print("🚀 Starting RainSafe API...")
+    logger.info("🚀 Starting RainSafe API...")
     if not await db.connect():
         raise RuntimeError("Failed to connect to MongoDB during startup.")
+
     try:
         app.state.predictor = FloodPredictor()
+        logger.info("✅ ML predictor initialized.")
     except Exception as e:
-        print(f"⚠️ ML predictor initialization failed: {e}. Running without ML predictions.")
+        logger.warning(f"⚠️ ML predictor failed to initialize: {e}")
         app.state.predictor = None
+
     yield
-    print("🛑 Shutting down RainSafe API...")
+    logger.info("🛑 Shutting down RainSafe API...")
     await db.disconnect()
 
 
-# Initialize FastAPI with the lifespan manager
+# --- FastAPI app ---
 app = FastAPI(
     title="RainSafe API",
     version="1.2.0",
@@ -107,198 +95,165 @@ app.add_middleware(
 )
 
 
-async def generate_and_send_alert_from_report(
-    report_latitude: float,
-    report_longitude: float,
-    determined_risk_level: RiskLevel,
-    report_description: str,
-) -> Optional[Alert]:
-    """
-    Called internally when a report triggers a high enough risk to warrant an alert.
-    """
-    location_name = await reverse_geocode(report_latitude, report_longitude)
+# --- Helper: generate alert ---
+async def generate_alert(lat: float, lon: float, risk_level: RiskLevel, description: str) -> Optional[Alert]:
+    location_name = await reverse_geocode(lat, lon)
 
-    message = f"Flood Warning: {report_description}. Risk Level: {determined_risk_level.value}."
-    if determined_risk_level == RiskLevel.HIGH:
-        message = f"Severe Flood Warning in {location_name}: {report_description}. Immediate action advised."
-    elif determined_risk_level == RiskLevel.MEDIUM:
-        message = f"Moderate Flood Risk in {location_name}: {report_description}. Exercise caution."
+    if risk_level == RiskLevel.HIGH:
+        message = f"Severe Flood Warning in {location_name}: {description}. Immediate action advised."
+    elif risk_level == RiskLevel.MEDIUM:
+        message = f"Moderate Flood Risk in {location_name}: {description}. Exercise caution."
+    else:
+        message = f"Flood Warning: {description}. Risk Level: {risk_level.value}."
 
     alert_record = {
         "location_name": location_name,
-        "risk_level": determined_risk_level,
+        "risk_level": risk_level,
         "message": message,
         "recipient": "all-subscribers-in-area",
         "source": AssessmentSource.HYBRID_HISTORICAL,
+        "sent_at": datetime.now(timezone.utc),
     }
 
     try:
-        alerts_collection = db.get_collection("alerts")
-        alert_record["sent_at"] = datetime.now(timezone.utc)
-        result = await alerts_collection.insert_one(alert_record)
+        collection = db.get_collection("alerts")
+        result = await collection.insert_one(alert_record)
         alert_record["_id"] = str(result.inserted_id)
-        print(f"Alert generated and saved: {alert_record['message']}")
+        logger.info(f"✅ Alert generated: {message}")
         return Alert(**alert_record)
     except Exception as e:
-        print(f"Error saving generated alert: {e}")
+        logger.error(f"❌ Error saving alert: {e}")
         return None
+
+
+# --- Background task ---
+async def assess_and_alert_task(
+    lat: float, lon: float, description: str, predictor: Optional[FloodPredictor] = None
+):
+    risk_service = RiskAssessmentService(database=db, predictor=predictor)
+    try:
+        prediction = await risk_service.get_risk_prediction(lat=lat, lon=lon)
+        if prediction.final_risk in [RiskLevel.MEDIUM, RiskLevel.HIGH]:
+            await generate_alert(lat, lon, prediction.final_risk, description)
+    except Exception as e:
+        logger.error(f"❌ Background risk assessment failed: {e}")
+
 
 # --- API Endpoints ---
 @app.get("/")
 def read_root():
-    """Health check endpoint."""
     return {"status": "RainSafe API is running!"}
 
 
 @app.post("/report", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
-async def create_report(
-    report: ReportCreate,
-    background_tasks: BackgroundTasks,
-    risk_service: RiskAssessmentService = Depends(get_risk_service),
-):
-    """Submit a new flood report with background risk assessment."""
+async def create_report(report: ReportCreate, background_tasks: BackgroundTasks, request: Request):
     try:
         report_data = report.model_dump(by_alias=True)
         report_data["created_at"] = datetime.now(timezone.utc)
-        nlp_analysis = await risk_service.analyze_description_with_nlp(report.description)
-        report_data["nlp_analysis"] = nlp_analysis
+
         reports_collection = db.get_collection("reports")
-        new_report_result = await reports_collection.insert_one(report_data)
-        created_report_doc = await reports_collection.find_one({"_id": new_report_result.inserted_id})
-        if not created_report_doc:
-            raise HTTPException(status_code=500, detail="Failed to retrieve report.")
-        created_report_doc["_id"] = str(created_report_doc["_id"])
+        result = await reports_collection.insert_one(report_data)
+        created_doc = await reports_collection.find_one({"_id": result.inserted_id})
+        created_doc["_id"] = str(created_doc["_id"])
 
+        # Background task
         background_tasks.add_task(
-            _assess_and_alert_task,
-            lat=report.latitude, lon=report.longitude,
-            description=report.description, predictor_state=app.state.predictor,
+            assess_and_alert_task,
+            lat=report.latitude,
+            lon=report.longitude,
+            description=report.description,
+            predictor=request.app.state.predictor
         )
-        return ReportResponse(message="Report received and analyzed successfully!", data=Report(**created_report_doc))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating report: {str(e)}")
 
-
-async def _assess_and_alert_task(
-    lat: float, lon: float, description: str, predictor_state: Optional[FloodPredictor]
-):
-    """Internal background task to assess risk and trigger alerts."""
-    try:
-        local_risk_service = RiskAssessmentService(database=db)
-        prediction_result = await local_risk_service.get_risk_prediction(lat=lat, lon=lon, predictor=predictor_state)
-        if prediction_result.final_risk in [RiskLevel.MEDIUM, RiskLevel.HIGH]:
-            await generate_and_send_alert_from_report(
-                report_latitude=lat, report_longitude=lon,
-                determined_risk_level=prediction_result.final_risk,
-                report_description=description,
-            )
+        return ReportResponse(message="Report received and analyzed successfully!", data=Report(**created_doc))
     except Exception as e:
-        print(f"Background risk assessment task failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Error creating report: {e}")
 
 
 @app.get("/risk", response_model=RiskResponse)
-async def get_risk(
-    lat: float, lon: float, request: Request,
-    risk_service: RiskAssessmentService = Depends(get_risk_service),
-):
-    """Get a hybrid flood risk assessment for a location."""
+async def get_risk(lat: float, lon: float, request: Request):
     try:
-        prediction_result = await risk_service.get_risk_prediction(
-            lat=lat, lon=lon, predictor=request.app.state.predictor
-        )
+        risk_service = RiskAssessmentService(database=db, predictor=request.app.state.predictor)
+        prediction = await risk_service.get_risk_prediction(lat=lat, lon=lon)
         return RiskResponse(
-            risk_level=prediction_result.final_risk,
-            source=prediction_result.source,
-            details=RiskAssessmentDetails(**prediction_result.model_dump()),
+            risk_level=prediction.final_risk,
+            source=prediction.source,
+            details=RiskAssessmentDetails(**prediction.model_dump()),
         )
     except Exception as e:
         return RiskResponse(
-            risk_level=RiskLevel.UNKNOWN, source=AssessmentSource.ERROR,
+            risk_level=RiskLevel.UNKNOWN,
+            source=AssessmentSource.ERROR,
             details=RiskAssessmentDetails(
-                threshold_assessment=RiskLevel.UNKNOWN, ml_assessment=RiskLevel.UNKNOWN,
-                user_reports_found=0, weather_data_found=False,
-                contributing_factors=["An unexpected error occurred"],
-                recommendation="Please try again later.", error=f"Error: {str(e)}",
+                threshold_assessment=RiskLevel.UNKNOWN,
+                ml_assessment=RiskLevel.UNKNOWN,
+                user_reports_found=0,
+                weather_data_found=False,
+                contributing_factors=["Unexpected error occurred"],
+                recommendation="Please try again later.",
+                error=str(e),
             ),
         )
 
 
 @app.get("/dashboard-data", response_model=DashboardResponse)
-async def get_dashboard_data(
-    start_time: Optional[datetime] = Query(None),
-    end_time: Optional[datetime] = Query(None),
-):
-    """Get aggregated data for the frontend dashboard."""
+async def get_dashboard_data(start_time: Optional[datetime] = Query(None), end_time: Optional[datetime] = Query(None)):
     try:
-        reports_collection = db.get_collection("reports")
+        collection = db.get_collection("reports")
         query = {}
-        # Default to the last 48 hours if no time range is specified
-        effective_start_time = start_time or (datetime.now(timezone.utc) - timedelta(hours=48))
-        query["created_at"] = {"$gte": effective_start_time}
+        effective_start = start_time or (datetime.now(timezone.utc) - timedelta(hours=48))
+        query["created_at"] = {"$gte": effective_start}
         if end_time:
             query["created_at"]["$lte"] = end_time
 
-        recent_reports = await reports_collection.find(query).sort("created_at", -1).limit(100).to_list(length=100)
+        recent_reports = await collection.find(query).sort("created_at", -1).limit(100).to_list(length=100)
 
-        map_points: List[MapPoint] = []
-        high_risk_count = 0
-        medium_risk_count = 0
-
-        for report_doc in recent_reports:
-            water_level = report_doc.get("water_level")
-            report_risk = RiskLevel.LOW
+        map_points, high_risk, medium_risk = [], 0, 0
+        for doc in recent_reports:
+            water_level = doc.get("water_level")
+            risk = RiskLevel.LOW
             if water_level in [WaterLevel.KNEE_DEEP, WaterLevel.WAIST_DEEP, WaterLevel.CHEST_DEEP, WaterLevel.ABOVE_HEAD]:
-                report_risk = RiskLevel.HIGH
-                high_risk_count += 1
+                risk = RiskLevel.HIGH
+                high_risk += 1
             elif water_level == WaterLevel.ANKLE_DEEP:
-                report_risk = RiskLevel.MEDIUM
-                medium_risk_count += 1
-            
+                risk = RiskLevel.MEDIUM
+                medium_risk += 1
+
             map_points.append(MapPoint(
-                id=str(report_doc["_id"]), latitude=report_doc["latitude"], longitude=report_doc["longitude"],
-                risk_level=report_risk, source=AssessmentSource.USER_REPORT, details=report_doc["description"],
+                id=str(doc["_id"]),
+                latitude=doc["latitude"],
+                longitude=doc["longitude"],
+                risk_level=risk,
+                source=AssessmentSource.USER_REPORT,
+                details=doc["description"]
             ))
-            
-        stats = DashboardStats(
-            total_reports=len(recent_reports),
-            high_risk_count=high_risk_count,
-            medium_risk_count=medium_risk_count
-        )
+
+        stats = DashboardStats(total_reports=len(recent_reports), high_risk_count=high_risk, medium_risk_count=medium_risk)
         return DashboardResponse(map_points=map_points, stats=stats)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {e}")
 
 
-@app.post("/alerts/send", response_model=Alert, status_code=status.HTTP_201_CREATED)
-async def send_alert(alert_data: Alert):
-    """Manually send and log a new flood alert."""
+@app.post("/alerts", response_model=List[Alert], status_code=status.HTTP_201_CREATED)
+async def alerts_endpoint(new_alert: Optional[Alert] = None):
+    collection = db.get_collection("alerts")
+    if collection is None:
+        raise HTTPException(status_code=500, detail="Alerts collection not initialized")
+
     try:
-        alert_record = alert_data.model_dump(by_alias=True)
-        alert_record["sent_at"] = datetime.now(timezone.utc)
-        if alert_record.get("_id") is None:
+        if new_alert:
+            alert_record = new_alert.model_dump(by_alias=True)
             alert_record.pop("_id", None)
+            alert_record["sent_at"] = datetime.now(timezone.utc)
+            result = await collection.insert_one(alert_record)
+            inserted = await collection.find_one({"_id": result.inserted_id})
+            inserted["_id"] = str(inserted["_id"])
+            logger.info(f"✅ Alert inserted: {inserted['message']}")
 
-        alerts_collection = db.get_collection("alerts")
-        result = await alerts_collection.insert_one(alert_record)
-        new_alert = await alerts_collection.find_one({"_id": result.inserted_id})
-        if not new_alert:
-            raise HTTPException(status_code=500, detail="Failed to retrieve new alert.")
-        new_alert["_id"] = str(new_alert["_id"])
-        return Alert(**new_alert)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send/log alert: {str(e)}")
-
-
-@app.get("/alerts/recent", response_model=List[Alert])
-async def get_alerts():
-    """Retrieve the most recent system alerts."""
-    try:
-        alerts_collection = db.get_collection("alerts")
-        alerts_cursor = alerts_collection.find().sort("sent_at", -1).limit(50)
-        alerts = await alerts_cursor.to_list(length=50)
+        alerts = await collection.find().sort("sent_at", -1).limit(50).to_list(length=50)
         for alert in alerts:
             alert["_id"] = str(alert["_id"])
         return alerts
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve alerts: {str(e)}")
-
+        logger.error(f"❌ Error in /alerts endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {e}")

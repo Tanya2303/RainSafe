@@ -4,6 +4,13 @@ FROM python:3.11
 
 WORKDIR /app
 
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libgeos-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip setuptools wheel
+
 COPY requirements.txt .
 
 # Layer 1: Install Python packages from requirements
