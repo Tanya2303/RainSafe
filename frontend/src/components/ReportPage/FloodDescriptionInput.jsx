@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 
 const COLORS = {
-  textDark: '#333333',
-  textMuted: '#888888',
-  accentBlue: '#6A96FF',
+  textDark: '#06304f',
+  textMuted: '#286198',
+  accentBlue: '#1F6783',
 };
 
 // Define water levels with corresponding keys and labels
@@ -151,14 +151,14 @@ export default function FloodDescriptionInput() {
               onClick={() => setSelectedLevel(level.key)}
               className={`flex-1 py-2 rounded-xl font-medium transition-colors duration-200 text-sm 
                 ${level.key === selectedLevel
-                  ? 'text-white shadow-md'
+                  ? 'text-white shadow-md' // This class is overridden by the style below
                   : 'text-gray-600 hover:bg-gray-50'
                 }`
               }
               style={{
-                // Set all button backgrounds to be uniform and use text color when unselected
+                // MODIFIED: If selected, use COLORS.textDark (#06304f) for high contrast on the light accentBlue background.
                 backgroundColor: level.key === selectedLevel ? COLORS.accentBlue : 'transparent',
-                color: level.key === selectedLevel ? 'white' : COLORS.textDark, // Use textDark for unselected label color
+                color: level.key === selectedLevel ? 'white' : COLORS.textDark, // <--- THE CHANGE IS HERE: Selected and Unselected text is now the same dark color.
                 border: level.key === selectedLevel ? 'none' : '1px solid transparent', // Keep a consistent box size
                 minWidth: '20%',
                 fontSize: '0.85rem'

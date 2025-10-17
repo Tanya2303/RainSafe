@@ -1,7 +1,14 @@
 import { useState } from 'react'
+import bg11 from '../assets/bg111.jpg';
+import { 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    updateProfile 
+} from 'firebase/auth';
+import { auth } from '../firebase'; // [NEW] Import the auth object
 
 // AuthPage now accepts onAuthSuccess prop from App.jsx
-const AuthPage = ({ onAuthSuccess }) => {
+const AuthPage = ({ onAuthSuccess, setCurrentUser, getUserDetails }) => {
   const [isLogin, setIsLogin] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -18,11 +25,11 @@ const AuthPage = ({ onAuthSuccess }) => {
 
   // Color palette as specified
   const colors = {
-    background: '#F5F7FA',
-    card: '#FFFFFF',
-    primaryText: '#333333',
-    secondaryText: '#888888',
-    accentBlue: '#6A96FF',
+    background: '#FFFAED',
+    card: '#FFFAED', // d
+    primaryText: '#06304f', //d
+    secondaryText: '#286198', //d
+    accentBlue: '#1F6783',
     accentGreen: '#4CAF50',
     accentYellow: '#FFC107',
     accentOrange: '#FF8C00',
@@ -92,74 +99,98 @@ const AuthPage = ({ onAuthSuccess }) => {
     
     setIsLoading(true)
     setShowSuccess(false)
+    setErrors({})
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false)
-      setShowSuccess(true)
-      
-      // If logging in successfully, call the onAuthSuccess callback
-      if (isLogin && onAuthSuccess) {
-          // Give a short delay to show the "Redirecting..." message
-          setTimeout(() => {
-              onAuthSuccess();
-          }, 500);
-      }
-      
-      // Reset form after success
-      setTimeout(() => {
-        setFormData({
-          name: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          rememberMe: false
-        })
-        setShowSuccess(false)
-        
-        // If it was a sign-up, switch to login mode after success message is shown
-        if (!isLogin) {
-            setIsLogin(true);
+    try {
+        if (isLogin) {
+            // --- Sign In with Firebase ---
+            const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+            const user = userCredential.user;
+            
+            setShowSuccess(true);
+            setTimeout(() => {
+                onAuthSuccess(user); // Triggers App.jsx redirection
+            }, 500); 
+
+        } else {
+            // --- Sign Up with Firebase ---
+            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+            const user = userCredential.user;
+
+            // Update user profile with display name
+            await updateProfile(user, {
+                displayName: formData.name
+            });
+            
+            setShowSuccess(true);
+            
+            // On successful signup, switch to login page and clean up
+            setTimeout(() => {
+                setIsLogin(true);
+                setFormData({ name: '', email: '', password: '', confirmPassword: '', rememberMe: false });
+                setShowSuccess(false);
+            }, 1000)
         }
-      }, 1000)
-    }, 1000)
+    } catch (error) {
+        console.error("Firebase Auth Error:", error);
+        
+        let errorMessage = "An unknown error occurred.";
+        if (error.code) {
+            switch (error.code) {
+                case 'auth/invalid-credential':
+                case 'auth/user-not-found':
+                case 'auth/wrong-password':
+                    errorMessage = "Invalid email or password.";
+                    break;
+                case 'auth/email-already-in-use':
+                    errorMessage = "Email already in use. Please sign in.";
+                    break;
+                case 'auth/weak-password':
+                    errorMessage = "Password should be at least 6 characters.";
+                    break;
+                default:
+                    errorMessage = `Authentication failed: ${error.message}`;
+            }
+        }
+        
+        setErrors({ general: errorMessage });
+        
+    } finally {
+        setIsLoading(false);
+    }
   }
 
   const toggleAuthMode = () => {
     setIsLogin(!isLogin)
     setErrors({})
     setShowSuccess(false)
+    setFormData({
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      rememberMe: false
+    })
   }
 
   return (
     <div 
       className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: colors.background }}
+      // ✅ 1. Apply bg11.jpeg as the full-page background
+      style={{ 
+        backgroundImage: `url(${bg11})`, 
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
+      }}
     >
       <div className="w-full max-w-6xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          {/* Left side - Illustration area for desktop */}
-          <div className="hidden lg:block">
-            <div 
-              className="h-96 rounded-2xl flex items-center justify-center relative overflow-hidden"
-              style={{ 
-                background: `linear-gradient(135deg, ${colors.accentBlue}20, ${colors.accentBlue}40)`
-              }}
-            >
-              {/* Decorative elements */}
-              <div className="absolute top-8 left-8 w-16 h-16 rounded-full opacity-20" style={{ backgroundColor: colors.accentBlue }}></div>
-              <div className="absolute bottom-8 right-8 w-12 h-12 rounded-full opacity-30" style={{ backgroundColor: colors.accentYellow }}></div>
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                <div className="text-6xl">🌧️</div>
-                <div className="text-center mt-4">
-                  <h2 className="text-2xl font-bold" style={{ color: colors.primaryText }}>RainSafe</h2>
-                  <p className="text-sm mt-2" style={{ color: colors.secondaryText }}>Weather Intelligence Platform</p>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* ✅ 2. Change the grid layout to a single column (grid-cols-1) */}
+        <div className="grid grid-cols-1 gap-8 items-center">
+          
+          {/* ❌ Left side - Illustration area (DELETED) */}
 
-          {/* Right side - Auth form */}
+          {/* Right side - Auth form (Now centered) */}
           <div className="w-full max-w-md mx-auto">
             <div 
               className="bg-white rounded-2xl shadow-xl p-8 transition-all duration-300"
@@ -181,6 +212,16 @@ const AuthPage = ({ onAuthSuccess }) => {
                   <div className="w-5 h-5 rounded-full mr-3" style={{ backgroundColor: colors.accentGreen }}></div>
                   <span className="text-sm font-medium" style={{ color: colors.accentGreen }}>
                     {isLogin ? 'Successfully signed in! Redirecting...' : 'Account created successfully!'}
+                  </span>
+                </div>
+              )}
+              
+              {/* [NEW] General Error message */}
+              {errors.general && (
+                <div className="mb-6 p-4 rounded-lg flex items-center" style={{ backgroundColor: `${colors.accentRed}20` }}>
+                  <div className="w-5 h-5 rounded-full mr-3" style={{ backgroundColor: colors.accentRed }}></div>
+                  <span className="text-sm font-medium" style={{ color: colors.accentRed }}>
+                    {errors.general}
                   </span>
                 </div>
               )}

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 
 const COLORS = {
-  textDark: '#333333',
-  textMuted: '#888888',
+  textDark: '#06304f',
+  textMuted: '#286198',
   accentBlue: '#6A96FF',
 };
 
@@ -42,7 +42,7 @@ const WaterLevelSelector = () => {
 
   return (
     <div className="p-6 rounded-2xl shadow-xl bg-white space-y-4">
-      <h2 className="text-lg font-bold" style={{ color: COLORS.textDark }}>Water Level</h2>
+      <h2 className="text-xl font-bold" style={{ color: COLORS.textDark }}>Water Level</h2>
       
       {/* Visual Bar Selector */}
       <div className="flex items-end justify-between space-x-2 h-32 py-2">
