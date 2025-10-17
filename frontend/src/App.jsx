@@ -1,18 +1,19 @@
 // App.jsx
 import { useState } from 'react';
-import Homepage from './components/Homepage/Homepage';
-import AuthPage from './components/AuthPage';
-import Sidebar from './components/Sidebar/Sidebar';
+// FIX: Added .jsx extension to all component imports to resolve module resolution errors
+import Homepage from './components/Homepage/Homepage.jsx';
+import AuthPage from './components/AuthPage.jsx';
+import Sidebar from './components/Sidebar/Sidebar.jsx';
 
 // Page imports
-import DashboardPage from './components/DashboardPage/DashboardPage';
-import ReportPage from './components/ReportPage/ReportPage';
-import MapPage from './components/MapPage/MapPage';
-import AlertsPage from './components/AlertPage/AlertPage';
-import LandingPage from './components/LandingPage';
+import DashboardPage from './components/DashboardPage/DashboardPage.jsx';
+import ReportPage from './components/ReportPage/ReportPage.jsx';
+import MapPage from './components/MapPage/MapPage.jsx';
+import AlertsPage from './components/AlertPage/AlertPage.jsx';
+import LandingPage from './components/LandingPage.jsx';
 
 // NEW: Risk page import
-import RiskSection from './components/RiskSection/RiskSection';
+import RiskSection from './components/RiskSection/RiskSection.jsx';
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,7 +41,11 @@ function App() {
 
   const renderPageContent = (Title, PageComponent) => (
     <>
-      <div className="p-4 md:p-6 flex items-center justify-between bg-white border-b border-gray-200 lg:sticky lg:top-0 z-30">
+      {/* Preserved: Background color set to #FFFAED */}
+      <div 
+        className="p-4 md:p-6 flex items-center justify-between border-b border-gray-200 lg:sticky lg:top-0 z-30"
+        style={{ backgroundColor: '#FFFAED' }}
+      >
         <h1 className="text-xl font-bold" style={{ color: '#333333' }}>{Title}</h1>
       </div>
       <PageComponent />

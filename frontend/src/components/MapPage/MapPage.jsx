@@ -107,7 +107,7 @@ const MapPage = () => {
     >
       <MapGL
         initialViewState={initialViewState}
-        style={{ width: '100%', height: '100%', borderRadius: '0.75rem', overflow: 'hidden' }} // Added rounded corners to the map itself
+        style={{ width: '95%', height: '90%', borderRadius: '0.75rem', overflow: 'hidden' }} // Added rounded corners to the map itself
         mapStyle="mapbox://styles/mapbox/dark-v9"
         mapboxAccessToken={MAPBOX_TOKEN}
       >

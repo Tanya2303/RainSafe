@@ -5,7 +5,7 @@ import WaterLevelSelector from './WaterLevelSelector';
 import FloodDescriptionInput from './FloodDescriptionInput';
 
 const COLORS = {
-  bg: '#F5F7FA',
+  bg: '#FFFAED',
 };
 
 const ReportPage = () => {

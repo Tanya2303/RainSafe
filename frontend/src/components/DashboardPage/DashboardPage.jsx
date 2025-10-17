@@ -20,8 +20,8 @@ const PAGE_BG_COLOR = '#FFFAED'; // The requested background color
 const HeaderContent = () => (
     // Reinstated top and bottom padding here
     <header className="p-4 md:p-8 pb-0">
-        <h1 className="text-3xl font-extrabold flex items-center " style={{ color: HEADING_COLOR }}>
-            <MapPin className="w-8 h-8 mr-2 text-blue-600" /> Flood Monitoring Dashboard
+        <h1 className="text-[3rem] font-extrabold flex items-center " style={{ color: HEADING_COLOR }}>
+            <MapPin className="w-8 h-8 mr-2 text-[#06304f]" /> Flood Monitoring Dashboard
         </h1>
         {/* Helper text color changed */}
         <p className="mt-1" style={{ color: HEADING_COLOR }}>Overview of real-time user-reported flood data. Data refreshes every 30 seconds.</p>
@@ -46,7 +46,7 @@ const getRiskColor = (risk = '') => {
 
 // Component to display a single dashboard card with a count
 const StatCard = ({ title, count, icon: Icon, color }) => (
-  <div className={`p-6 bg-white rounded-xl shadow-lg border-l-4 ${color} transform transition duration-300 hover:scale-[1.02]`}>
+  <div className={`p-6 bg-[#FFFFFF] rounded-xl shadow-lg border-l-4 ${color} transform transition duration-300 hover:scale-[1.02]`}>
     <div className="flex items-center justify-between">
       <p className="text-sm font-medium uppercase tracking-wider" style={{ color: HEADING_COLOR }}>{title}</p>
       <Icon className={`w-6 h-6 ${color.replace('border-', 'text-')}`} />

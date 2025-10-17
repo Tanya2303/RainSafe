@@ -143,16 +143,16 @@ const AlertsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
+    <div className="min-h-screen bg-[#FFFAED] p-6">
       {/* Header */}
-      <div className="bg-blue-100 rounded-xl p-8 flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Bell className="w-8 h-8 text-blue-600" />
+      <div className="bg-[#1F6783] rounded-xl p-8 flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4 text-white">
+          <Bell className="w-8 h-8 text-white" />
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold">
+            <h2 className="text-2xl md:text-3xl font-bold ">
               {alerts.length} Active Warnings Nearby!
             </h2>
-            <p className="text-gray-600 text-sm">
+            <p className="text-white text-sm">
               Data from your dashboard feed. Tap a card for details or open in maps.
             </p>
           </div>
@@ -176,12 +176,12 @@ const AlertsPage = () => {
                 .catch((e) => setError(e.message || "Failed to refresh"))
                 .finally(() => setLoading(false));
             }}
-            className="px-3 py-1 rounded-full bg-white shadow text-sm"
+            className="px-3 py-1 rounded-full bg-[#FFFAED] shadow text-sm"
             title="Refresh"
           >
             Refresh
           </button>
-          <button className="text-gray-500 hover:text-gray-700" title="Alert settings">
+          <button className="text-white hover:text-gray-500" title="Alert settings">
             {/* simple settings icon */}
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c1.104 0 2-.896 2-2s-.896-2-2-2-2 .896-2 2 .896 2 2 2zm0 2c-3.314 0-6 2.686-6 6v2h12v-2c0-3.314-2.686-6-6-6z" />
@@ -194,25 +194,25 @@ const AlertsPage = () => {
       <div className="flex flex-col md:flex-row md:items-center gap-3 mb-6">
         <div className="flex gap-3">
           <button
-            className={`px-4 py-2 rounded-full font-semibold ${filter === "severe" ? "bg-red-500 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-full font-semibold ${filter === "severe" ? "bg-red-500 text-white" : "bg-[#C0E2DE]"}`}
             onClick={() => setFilter("severe")}
           >
             Severe
           </button>
           <button
-            className={`px-4 py-2 rounded-full font-semibold ${filter === "moderate" ? "bg-blue-500 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-full font-semibold ${filter === "moderate" ? "bg-blue-500 text-white" : "bg-[#C0E2DE]"}`}
             onClick={() => setFilter("moderate")}
           >
             Moderate
           </button>
           <button
-            className={`px-4 py-2 rounded-full font-semibold ${filter === "low" ? "bg-green-500 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-full font-semibold ${filter === "low" ? "bg-green-500 text-white" : "bg-[#C0E2DE]"}`}
             onClick={() => setFilter("low")}
           >
             Low
           </button>
           <button
-            className={`px-4 py-2 rounded-full font-semibold ${filter === "all" ? "bg-gray-800 text-white" : "bg-gray-200"}`}
+            className={`px-4 py-2 rounded-full font-semibold ${filter === "all" ? "bg-gray-800 text-white" : "bg-[#C0E2DE]"}`}
             onClick={() => setFilter("all")}
           >
             All
@@ -225,7 +225,7 @@ const AlertsPage = () => {
             placeholder="Filter by id, location (lat,long), source, or keywords (e.g. 'water level' or 'Silk Board')..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-96 px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full md:w-96 px-4 py-2 rounded-full border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
           />
         </div>
       </div>
@@ -286,7 +286,7 @@ const AlertsPage = () => {
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <span className="text-xs px-2 py-1 rounded-full bg-gray-100">{alert.severity.toUpperCase()}</span>
+                  <span className="text-xs px-3 py-1 text-white rounded-full bg-[#1F6783]">{alert.severity.toUpperCase()}</span>
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleOpenInMaps(alert.raw)}

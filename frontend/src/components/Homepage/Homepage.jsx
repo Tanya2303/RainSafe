@@ -27,7 +27,6 @@ const COLORS = {
   riskAmber: '#E2EDEB',
   criticalRed: '#1f6783',
   weatherBlue: '#E2EDEB',
-  red: '#ff0000',
   // Define new Welcome Banner background color
   welcomeBg: '#0A5C61',
 };

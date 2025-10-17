@@ -19,8 +19,8 @@ const AuthPage = ({ onAuthSuccess }) => {
 
   // Color palette as specified
   const colors = {
-    background: '#F5F7FA',
-    card: '#e2edeb', // d
+    background: '#FFFAED',
+    card: '#FFFAED', // d
     primaryText: '#06304f', //d
     secondaryText: '#286198', //d
     accentBlue: '#1F6783',
