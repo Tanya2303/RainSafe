@@ -81,7 +81,7 @@ const HeroSection = ({ onNavigate }) => (
       backgroundImage: `url(${bgImage})`, 
       backgroundSize: 'cover', 
       backgroundPosition: 'center',
-      clipPath: 'polygon(0 0, 100% 0, 100% 85%, 0% 100%)' // Subtle wave effect at the bottom
+      clipPath: 'polygon(0 0, 100% 0, 100% 75%, 0% 98%)' // Subtle wave effect at the bottom
     }}
   >
     {/* Global Map Illustration (Simplified SVG or component could replace this) */}

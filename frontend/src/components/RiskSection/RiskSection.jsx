@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import Map, { Marker, NavigationControl, ScaleControl } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
+// 1. Import a suitable image asset (using bg111.jpg as a generic illustration placeholder)
+import RiskIllustration from '../../assets/img.png'; 
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const API_BASE = import.meta.env.VITE_API_BASE || ""; // e.g. http://localhost:8000
@@ -259,17 +261,17 @@ export default function RiskSection() {
   return (
     <div className="p-6 min-h-screen" style={{ backgroundColor: '#FFFAED' }}>
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
+        {/* Header (No Change) */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[3rem] font-bold">Risk Assessment</h2>
+            <h2 className="text-2xl font-bold">Risk Assessment</h2>
             <p className="text-sm text-gray-500">Based on reports, weather & models</p>
           </div>
           <div className="text-sm text-gray-400">Source: hybrid-historical</div>
         </div>
 
-        {/* Inputs */}
-        <div className="bg-white rounded-xl p-5 shadow mb-6">
+        {/* Inputs (No Change) */}
+        <div className="bg-white rounded-xl p-4 shadow mb-6">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <input
               value={locationQuery}
@@ -303,123 +305,151 @@ export default function RiskSection() {
           {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
         </div>
 
-        {/* Map */}
-        <div className="mt-4 bg-white rounded-xl p-4 shadow">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold">Map preview</div>
-            <div className="text-xs text-gray-400">
-              Lat: {lat !== null ? Number(lat).toFixed(6) : "—"} • Lon: {lon !== null ? Number(lon).toFixed(6) : "—"}
-            </div>
-          </div>
-          <div className="h-64 rounded-md overflow-hidden">
-            <Map
-              viewState={viewState}
-              onMove={(evt) => setViewState(evt.viewState)}
-              mapStyle="mapbox://styles/mapbox/streets-v12"
-              mapboxAccessToken={MAPBOX_TOKEN}
-            >
-              <NavigationControl position="top-right" />
-              <ScaleControl />
-              {lat !== null && lon !== null && (
-                <Marker latitude={Number(lat)} longitude={Number(lon)} anchor="bottom">
-                  <BluePin />
-                </Marker>
-              )}
-            </Map>
-          </div>
-        </div>
+        {/* --- MODIFIED: Main Content Grid for 2/5 and 3/5 Split --- */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mt-4">
 
-        {/* Risk details */}
-        {risk && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {/* Summary */}
-            <div className="bg-white rounded-xl p-6 shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${colorForRisk(
-                        risk.risk_level
-                      )}`}
-                    >
-                      {risk.risk_level}
-                    </span>
-                    <div>
-                      <div className="text-sm text-gray-500">Assessment</div>
-                      <div className="text-lg font-bold">{risk.details.threshold_assessment}</div>
-                      <div className="text-xs text-gray-400">Source: {risk.source}</div>
+          {/* COLUMN 1 (2/5): ASSESSMENT SUMMARY + IMAGE */}
+          {risk && (
+            <div className="lg:col-span-2 space-y-4"> {/* Added space-y-4 for gap between cards */}
+              {/* 1. Summary Card */}
+              <div className="bg-white rounded-xl p-6 shadow">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-sm font-semibold ${colorForRisk(
+                          risk.risk_level
+                        )}`}
+                      >
+                        {risk.risk_level}
+                      </span>
+                      <div>
+                        <div className="text-sm text-gray-500">Assessment</div>
+                        <div className="text-lg font-bold">{risk.details.threshold_assessment}</div>
+                        <div className="text-xs text-gray-400">Source: {risk.source}</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4">
+                      <div className="text-sm text-gray-500 mb-1">Recommendation</div>
+                      <div className="text-base text-gray-800 font-medium">{risk.details.recommendation}</div>
+                    </div>
+
+                    <div className="mt-4 flex gap-2">
+                      <button className="px-3 py-1 rounded-full border text-sm">Share</button>
+                      <button className="px-3 py-1 rounded-full border text-sm">Report</button>
+                      <button className="px-3 py-1 rounded-full border text-sm">Save location</button>
                     </div>
                   </div>
 
-                  <div className="mt-4">
-                    <div className="text-sm text-gray-500 mb-1">Recommendation</div>
-                    <div className="text-base text-gray-800 font-medium">{risk.details.recommendation}</div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">Last updated</div>
+                    <div className="text-sm text-gray-700 mt-1">{new Date().toLocaleString()}</div>
                   </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <button className="px-3 py-1 rounded-full border text-sm">Share</button>
-                    <button className="px-3 py-1 rounded-full border text-sm">Report</button>
-                    <button className="px-3 py-1 rounded-full border text-sm">Save location</button>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-xs text-gray-500">Last updated</div>
-                  <div className="text-sm text-gray-700 mt-1">{new Date().toLocaleString()}</div>
                 </div>
               </div>
-            </div>
 
-            {/* Details (ML + contributing factors) */}
+              {/* 2. Illustration container (Fills the gap below the summary card) */}
+              {/* REMOVED bg-white & shadow, set dynamic height, centered illustration */}
+              <div 
+                  className="w-full h-auto flex items-center justify-center p-6" 
+                  // Using a dynamic style based on the image size from the reference (approx 300px)
+                  style={{ height: '300px' }}
+              >
+                <div className="w-full max-w-md mx-auto"> {/* adjust max-w-md as needed */}
+  <img
+    src={RiskIllustration}
+    alt="Flood Risk Illustration"
+    className="w-full h-auto object-contain"
+  />
+</div>
+              </div>
+            </div>
+          )}
+
+          {/* COLUMN 2 (3/5): MAP AND DETAILS (Stacked) */}
+          <div className={`lg:col-span-${risk ? '3' : '5'} space-y-4`}>
+            
+            {/* MAP PREVIEW (Moved) */}
             <div className="bg-white rounded-xl p-4 shadow">
-              <h3 className="text-sm font-semibold mb-3">Details</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">User reports</div>
-                    <div className="text-xs text-gray-400">Reports submitted by users</div>
-                  </div>
-                  <div className="text-lg font-bold">{risk.details.user_reports_found ?? 0}</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold">Map preview</div>
+                <div className="text-xs text-gray-400">
+                  Lat: {lat !== null ? Number(lat).toFixed(6) : "—"} • Lon: {lon !== null ? Number(lon).toFixed(6) : "—"}
                 </div>
-
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">Weather data</div>
-                  </div>
-                  <div className="text-sm">{risk.details.weather_data_found ? "Available" : "Not found"}</div>
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b">
-                  <div>
-                    <div className="text-sm font-medium text-gray-700">Threshold assessment</div>
-                  </div>
-                  <div className="text-sm">{risk.details.threshold_assessment || "N/A"}</div>
-                </div>
-
-                <div className="py-2 border-b">
-                  <div className="text-sm font-medium text-gray-700">ML assessment</div>
-                  <div className="mt-1 flex items-center gap-3">
-                    {mlLoading ? (
-                      <div className="text-sm text-blue-600">ML analysis in progress…</div>
-                    ) : (
-                      mlAssessmentDisplay(risk.details.ml_assessment)
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-sm font-medium text-gray-700 mt-2">Contributing factors</div>
-                  <ul className="list-disc pl-5 mt-2 text-sm text-gray-700">
-                    {Array.isArray(risk.details["contributing factors"]) &&
-                      risk.details["contributing factors"].map((f, i) => <li key={i}>{f}</li>)}
-                  </ul>
-                </div>
-
-                {risk.details.error && <div className="mt-3 text-sm text-red-600">Error: {risk.details.error}</div>}
+              </div>
+              <div className="h-64 rounded-md overflow-hidden">
+                <Map
+                  viewState={viewState}
+                  onMove={(evt) => setViewState(evt.viewState)}
+                  mapStyle="mapbox://styles/mapbox/streets-v12"
+                  mapboxAccessToken={MAPBOX_TOKEN}
+                >
+                  <NavigationControl position="top-right" />
+                  <ScaleControl />
+                  {lat !== null && lon !== null && (
+                    <Marker latitude={Number(lat)} longitude={Number(lon)} anchor="bottom">
+                      <BluePin />
+                    </Marker>
+                  )}
+                </Map>
               </div>
             </div>
+
+            {/* DETAILS CARD (Only displayed if risk data exists) */}
+            {risk && (
+              <div className="bg-white rounded-xl p-4 shadow">
+                <h3 className="text-sm font-semibold mb-3">Details</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">User reports</div>
+                      <div className="text-xs text-gray-400">Reports submitted by users</div>
+                    </div>
+                    <div className="text-lg font-bold">{risk.details.user_reports_found ?? 0}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Weather data</div>
+                    </div>
+                    <div className="text-sm">{risk.details.weather_data_found ? "Available" : "Not found"}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2 border-b">
+                    <div>
+                      <div className="text-sm font-medium text-gray-700">Threshold assessment</div>
+                    </div>
+                    <div className="text-sm">{risk.details.threshold_assessment || "N/A"}</div>
+                  </div>
+
+                  <div className="py-2 border-b">
+                    <div className="text-sm font-medium text-gray-700">ML assessment</div>
+                    <div className="mt-1 flex items-center gap-3">
+                      {mlLoading ? (
+                        <div className="text-sm text-blue-600">ML analysis in progress…</div>
+                      ) : (
+                        mlAssessmentDisplay(risk.details.ml_assessment)
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mt-2">Contributing factors</div>
+                    <ul className="list-disc pl-5 mt-2 text-sm text-gray-700">
+                      {Array.isArray(risk.details["contributing factors"]) &&
+                        risk.details["contributing factors"].map((f, i) => <li key={i}>{f}</li>)}
+                    </ul>
+                  </div>
+
+                  {risk.details.error && <div className="mt-3 text-sm text-red-600">Error: {risk.details.error}</div>}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
+        {/* --- END MODIFIED MAIN CONTENT GRID --- */}
+
       </div>
     </div>
   );
