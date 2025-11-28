@@ -119,7 +119,8 @@ const RiskStatCard = ({ value, label, icon: Icon }) => (
 
 const ChancesOfRainCard = () => (
   <div className="p-4 rounded-xl shadow-lg flex items-center justify-center h-full" style={{ backgroundColor: '#C7E2E9', border: `1px solid ${COLORS.riskAmber}40` }}>
-    <p className="text-xl font-bold" style={{ color: COLORS.cardtext }}>chances of rain</p>
+    <p className="text-xl font-bold" style={{ color: COLORS.cardtext }}>Chances of rain likely today.  <br />Check for waterlogging in low-lying areas</p>
+    {/* <p>Check for waterlogging in low-lying areas.</p> */}
   </div>
 );
 
